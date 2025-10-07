@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JPS 彈跳運動教室 - 課程預約系統</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f8f9fa;
+        }
+        .gradient-text {
+            background: linear-gradient(to right, #f97316, #ef4444);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .progress-bar-bg {
+            background-color: #e9ecef;
+        }
+        .progress-bar {
+            transition: width 0.3s ease-in-out;
+        }
+        .status-pending { background-color: #fef9c3; border-left: 5px solid #facc15; }
+        .status-confirmed { background-color: #dcfce7; border-left: 5px solid #4ade80; }
+        .status-full { background-color: #fee2e2; border-left: 5px solid #f87171; }
+        .status-expired { background-color: #f3f4f6; border-left: 5px solid #9ca3af; color: #6b7280; }
+        .schedule-grid {
+            display: grid;
+            grid-template-columns: 60px repeat(6, 1fr);
+            grid-template-rows: auto;
+            gap: 4px;
+        }
+        .time-slot {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            transform: rotate(180deg);
+            white-space: nowrap;
+        }
+        .modal {
+            transition: opacity 0.25s ease;
+        }
+        .modal-content {
+            transition: transform 0.25s ease;
+        }
+    </style>
+</head>
+<body class="antialiased text-gray-800">
+
+    <div id="app" class="container mx-auto p-4 md:p-8 max-w-7xl">
+
+        <header class="text-center mb-8">
+            <h1 class="text-4xl md:text-5xl font-black gradient-text">JPS 彈跳運動教室</h1>
+            <p class="text-lg text-gray-600 mt-2">即時課程預約系統</p>
+        </header>
+
+        <div class="grid md:grid-cols-2 gap-4 mb-6">
+            <div class="p-3 bg-indigo-100 border border-indigo-200 rounded-lg text-center">
+                <p class="text-sm text-indigo-800">您的專屬 ID: 
+                    <strong id="userId" class="font-mono cursor-pointer" title="點擊以複製完整 ID">載入中...</strong>
+                    <span id="copyFeedback" class="text-xs text-green-600 font-bold ml-2 opacity-0 transition-opacity duration-300">已複製！</span>
+                </p>
+            </div>
+            <div class="p-3 bg-orange-100 border border-orange-200 rounded-lg flex items-center gap-2">
+                <label for="userNameInput" class="text-sm font-medium text-orange-800 whitespace-nowrap">您的姓名:</label>
+                <input type="text" id="userNameInput" class="w-full px-2 py-1 text-sm border-orange-300 rounded-md focus:ring-orange-500 focus:border-orange-500" placeholder="請輸入姓名以利報名">
+                <button id="saveNameBtn" class="px-3 py-1 bg-orange-500 text-white text-sm rounded-md hover:bg-orange-600 transition-colors whitespace-nowrap">儲存</button>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap justify-center gap-2 md:gap-4 mb-6 text-xs md:text-sm">
+            <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-yellow-200 border border-yellow-400 mr-2"></span><span>招生中</span></div>
+            <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-green-200 border border-green-400 mr-2"></span><span>確定開課</span></div>
+            <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-red-200 border border-red-400 mr-2"></span><span>已額滿</span></div>
+            <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-gray-200 border border-gray-400 mr-2"></span><span>已結束</span></div>
+        </div>
+        
+        <div class="bg-white p-4 rounded-2xl shadow-lg overflow-x-auto">
+            <div class="flex items-center justify-between mb-4 px-2">
+                <button id="prevWeekBtn" title="前一週" class="p-2 rounded-full hover:bg-gray-200 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <h3 id="weekRangeDisplay" class="text-lg font-bold text-gray-700 w-48 text-center"></h3>
+                <button id="todayBtn" class="text-sm px-3 py-2 bg-indigo-500 text-white rounded-md hover:bg-indigo-600 transition-colors whitespace-nowrap">回到本週</button>
+                <button id="nextWeekBtn" title="後一週" class="p-2 rounded-full hover:bg-gray-200 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                </button>
+            </div>
+
+            <div id="scheduleContainer" class="schedule-grid text-center text-xs md:text-sm"></div>
+        </div>
+
+        <footer class="text-center mt-8 text-sm text-gray-500">
+            <p>此為模擬系統，所有課程與預約資料僅供展示。 </p>
+        </footer>
+    </div>
+
+    <div id="adminPanel" class="hidden container mx-auto p-4 md:p-8 max-w-7xl mt-8">
+        <div class="bg-white p-6 rounded-2xl shadow-lg">
+            <h2 class="text-2xl md:text-3xl font-bold text-center mb-6 text-gray-800">管理者後台 - 報名狀況</h2>
+            <div id="adminCourseList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </div>
+    </div>
+
+    <div id="bookingModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 opacity-0 pointer-events-none">
+        <div class="modal-content transform -translate-y-10 bg-white rounded-2xl shadow-xl w-11/12 max-w-md m-4">
+            <div id="modalHeader" class="p-5 border-b rounded-t-2xl">
+                <h3 id="modalCourseName" class="text-2xl font-bold">課程名稱</h3>
+                <p id="modalCourseTime" class="text-gray-500">時間</p>
+            </div>
+            <div class="p-6 space-y-4">
+                <div>
+                    <p class="font-bold text-lg">預約狀態</p>
+                    <div class="flex items-center justify-between text-sm">
+                        <span id="modalSpots">0/6 人</span>
+                        <span id="modalStatus" class="font-bold"></span>
+                    </div>
+                    <div class="w-full progress-bar-bg rounded-full h-2.5 mt-1">
+                        <div id="modalProgressBar" class="bg-yellow-400 h-2.5 rounded-full" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div id="attendeesListContainer" class="hidden">
+                    <p class="font-bold text-sm mb-1">已報名學員：</p>
+                    <div id="attendeesList" class="text-sm text-gray-600 max-h-20 overflow-y-auto bg-gray-50 p-2 rounded-md"></div>
+                </div>
+                <div id="bookingCountContainer" class="pt-2">
+                    <label for="bookingCount" class="block text-sm font-medium text-gray-700 mb-1">報名人數</label>
+                    <input type="number" id="bookingCount" value="1" min="1" class="w-full p-2 border border-gray-300 rounded-md text-center">
+                </div>
+                <p id="modalBookingRule" class="text-sm text-red-600 bg-red-100 p-2 rounded-md"></p>
+                <p id="modalUserInfo" class="text-sm text-blue-600 bg-blue-100 p-2 rounded-md"></p>
+                <p id="modalDeadlineInfo" class="hidden text-sm text-center font-bold text-red-700 bg-red-100 p-2 rounded-md">已截止預約/取消 (開課前 2 小時)</p>
+            </div>
+            <div class="flex items-center justify-end p-5 border-t space-x-2 rounded-b-2xl bg-gray-50">
+                <button id="closeModalBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">關閉</button>
+                <button id="cancelBookingBtn" class="hidden px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">取消我的預約</button>
+                <button id="addBookingBtn" class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">立即預約</button>
+            </div>
+        </div>
+    </div>
+    
+    <div id="confirmModal" class="modal fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-60 opacity-0 pointer-events-none">
+        <div class="modal-content bg-white rounded-xl shadow-lg w-11/12 max-w-sm m-4 p-6 text-center">
+            <p id="confirmMessage" class="text-lg mb-6">確定要執行此操作嗎？</p>
+            <div class="flex justify-center gap-4">
+                <button id="confirmNoBtn" class="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">取消</button>
+                <button id="confirmYesBtn" class="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">確定</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getFirestore, doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        
+        // --- ▼▼▼ 請將 Firebase 設定貼在這裡 ▼▼▼ ---
+        // 請參考 "Firebase 設定與部署教學指南.md" 的第五步，將您的 firebaseConfig 物件貼在此處取代下一行。
+        const firebaseConfig = {
+			  apiKey: "AIzaSyBIeXTW1yCsASMPY64HhdDoXYIygl08f34",
+			  authDomain: "jps-booking-system.firebaseapp.com",
+			  projectId: "jps-booking-system",
+			  storageBucket: "jps-booking-system.firebasestorage.app",
+			  messagingSenderId: "582146871191",
+			  appId: "1:582146871191:web:9b254fe25bba83fb133ed2"
+			};
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        let db, auth;
+        if (firebaseConfig.apiKey) {
+            try {
+                const app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+            } catch (e) { console.error("Firebase initialization failed:", e); displayError("Firebase 初始化失敗。"); }
+        } else {
+             displayError("Firebase 設定無效或不存在，請依照教學文件完成設定。");
+        }
+
+        let currentUserId = null;
+        let currentUserName = '';
+        let currentDate = new Date();
+        
+        // --- ▼▼▼ 請將您的管理者 ID 貼在這裡 ▼▼▼ ---
+        // 請參考 "Firebase 設定與部署教學指南.md" 的第六步，將您的專屬 ID 貼在雙引號中。
+        const ADMIN_USER_ID = "14132167471352624300";
+        // --- ▲▲▲ 請將您的管理者 ID 貼在這裡 ▲▲▲ ---
+
+        const scheduleContainer = document.getElementById('scheduleContainer');
+        const bookingModal = document.getElementById('bookingModal');
+        const confirmModal = document.getElementById('confirmModal');
+        const prevWeekBtn = document.getElementById('prevWeekBtn');
+        const nextWeekBtn = document.getElementById('nextWeekBtn');
+        const todayBtn = document.getElementById('todayBtn');
+        
+        const timeSlots = ["10:00-10:45", "11:15-12:00", "14:00-14:45", "18:15-19:00", "19:15-20:00", "20:15-21:15"];
+        const weekdays = ["週一", "週二", "週三", "週四", "週五", "週六"];
+        const courseDetails = {
+            "入門跳床": { type: "有氧", min: 3, color: "bg-green-100", textColor: "text-green-800", borderColor: "border-green-300" },
+            "入門階梯": { type: "有氧", min: 3, color: "bg-green-100", textColor: "text-green-800", borderColor: "border-green-300" },
+            "燃脂跳床": { type: "有氧", min: 3, color: "bg-red-100", textColor: "text-red-800", borderColor: "border-red-300" },
+            "基礎肌力": { type: "肌力", min: 1, color: "bg-blue-100", textColor: "text-blue-800", borderColor: "border-blue-300" },
+            "懸吊TRX": { type: "肌力", min: 1, color: "bg-indigo-100", textColor: "text-indigo-800", borderColor: "border-indigo-300" },
+            "壺鈴綜合訓練": { type: "肌力", min: 1, color: "bg-purple-100", textColor: "text-purple-800", borderColor: "border-purple-300" },
+            "基礎跳床": { type: "有氧", min: 3, color: "bg-yellow-100", textColor: "text-yellow-800", borderColor: "border-yellow-300" },
+        };
+        
+        const schedule = {
+            "週一": { "11:15-12:00": "入門階梯", "19:15-20:00": "入門跳床", "20:15-21:15": "懸吊TRX" },
+            "週二": { "10:00-10:45": "入門跳床", "14:00-14:45": "入門階梯", "19:15-20:00": "入門跳床", "20:15-21:15": "壺鈴綜合訓練" },
+            "週三": { "10:00-10:45": "基礎肌力", "11:15-12:00": "懸吊TRX", "18:15-19:00": "基礎肌力", "19:15-20:00": "燃脂跳床" },
+            "週四": { "10:00-10:45": "基礎肌力", "11:15-12:00": "入門階梯", "14:00-14:45": "懸吊TRX", "18:15-19:00": "基礎跳床", "19:15-20:00": "基礎跳床", "20:15-21:15": "懸吊TRX" },
+            "週五": { "10:00-10:45": "入門跳床", "11:15-12:00": "壺鈴綜合訓練", "14:00-14:45": "基礎肌力", "18:15-19:00": "入門階梯", "19:15-20:00": "燃脂跳床", "20:15-21:15": "基礎肌力" },
+            "週六": { "10:00-10:45": "入門跳床", "11:15-12:00": "燃脂跳床" }
+        };
+
+        function copyToClipboard(text) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed"; 
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.opacity = "0";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                const successful = document.execCommand('copy');
+                return successful;
+            } catch (err) {
+                console.error('無法複製 ID: ', err);
+                return false;
+            } finally {
+                document.body.removeChild(textArea);
+            }
+        }
+
+        if (auth) {
+            onAuthStateChanged(auth, user => {
+                if (user) {
+                    currentUserId = user.uid;
+                    const userIdEl = document.getElementById('userId');
+                    const copyFeedbackEl = document.getElementById('copyFeedback');
+                    userIdEl.textContent = `${currentUserId.substring(0, 8)}...`;
+                    
+                    userIdEl.addEventListener('click', () => {
+                        if (copyToClipboard(currentUserId)) {
+                            copyFeedbackEl.style.opacity = '1';
+                            setTimeout(() => { copyFeedbackEl.style.opacity = '0'; }, 2000);
+                        } else {
+                            alert("複製失敗，請手動複製。");
+                        }
+                    });
+
+                    const savedName = localStorage.getItem('jpsUserName');
+                    if (savedName) {
+                        currentUserName = savedName;
+                        document.getElementById('userNameInput').value = savedName;
+                    }
+                    
+                    initializeSchedule();
+                    
+                    if (currentUserId === ADMIN_USER_ID) {
+                        document.getElementById('adminPanel').classList.remove('hidden');
+                        initializeAdminView();
+                    }
+                } 
+            });
+
+            (async () => {
+                try {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else { await signInAnonymously(auth); }
+                } catch (error) { console.error("Authentication failed:", error); displayError(`登入失敗: ${error.message}`); }
+            })();
+        }
+
+        document.getElementById('saveNameBtn').addEventListener('click', () => {
+            const nameToSave = document.getElementById('userNameInput').value.trim();
+            if (nameToSave) {
+                currentUserName = nameToSave;
+                localStorage.setItem('jpsUserName', nameToSave);
+                alert('姓名已儲存！');
+            } else { alert('請輸入有效的姓名。'); }
+        });
+
+        function getWeekInfo(refDate) {
+            const date = new Date(refDate);
+            const day = date.getDay();
+            const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+            const monday = new Date(date.setDate(diff));
+            const weekDates = Array.from({length: 6}, (_, i) => {
+                const weekDay = new Date(monday);
+                weekDay.setDate(monday.getDate() + i);
+                return weekDay;
+            });
+            const saturday = weekDates[5];
+            const rangeStr = `${monday.getMonth() + 1}/${monday.getDate()} - ${saturday.getMonth() + 1}/${saturday.getDate()}`;
+            return { weekDates, rangeStr };
+        }
+
+        function getClassDateTime(date, time) {
+            const [startTime] = time.split('-');
+            const [hours, minutes] = startTime.split(':');
+            const classDateTime = new Date(date);
+            classDateTime.setHours(hours, minutes, 0, 0);
+            return classDateTime;
+        }
+
+        async function initializeSchedule() {
+            if (!currentUserId || !db) return;
+
+            const { weekDates, rangeStr } = getWeekInfo(currentDate);
+            document.getElementById('weekRangeDisplay').textContent = rangeStr;
+            scheduleContainer.innerHTML = '';
+            const scheduleFragment = document.createDocumentFragment();
+            
+            const headerFrag = document.createDocumentFragment();
+            headerFrag.appendChild(document.createElement('div'));
+            weekdays.forEach((day, index) => {
+                const dayHeader = document.createElement('div');
+                dayHeader.className = "font-bold p-2 rounded-t-lg bg-gray-100";
+                dayHeader.innerHTML = `${day}<br><span class="text-xs font-normal">${weekDates[index].getMonth()+1}/${weekDates[index].getDate()}</span>`;
+                headerFrag.appendChild(dayHeader);
+            });
+            scheduleFragment.appendChild(headerFrag);
+
+            timeSlots.forEach(time => {
+                const timeLabel = document.createElement('div');
+                const startHour = parseInt(time.split(':')[0]);
+                const bgColorClass = startHour < 12 ? 'bg-orange-50' : (startHour < 18 ? 'bg-sky-50' : 'bg-indigo-50');
+                const textColorClass = startHour < 12 ? 'text-orange-800' : (startHour < 18 ? 'text-sky-800' : 'text-indigo-800');
+                timeLabel.className = `font-bold ${textColorClass} p-2 text-center time-slot flex items-center justify-center ${bgColorClass} rounded-lg`;
+                timeLabel.textContent = time;
+                scheduleFragment.appendChild(timeLabel);
+
+                weekDates.forEach((date, dayIndex) => {
+                    const dayName = weekdays[dayIndex];
+                    const courseName = schedule[dayName]?.[time];
+                    const cell = document.createElement('div');
+                    cell.className = 'p-1 min-h-[110px]';
+                    if (courseName) {
+                        const classDateTime = getClassDateTime(date, time);
+                        const isExpired = new Date() > classDateTime;
+                        const courseId = `${classDateTime.toISOString().slice(0, 10)}-${time}`;
+                        
+                        cell.innerHTML = `
+                            <div id="${courseId}" class="course-card h-full p-2 rounded-lg flex flex-col justify-between border text-left ${isExpired ? 'status-expired' : 'cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-1'}">
+                                <div>
+                                    <p class="font-bold text-center">${courseName}</p>
+                                    <div class="attendee-info mt-1 text-xs text-gray-700 overflow-hidden h-10"></div>
+                                </div>
+                                <div class="mt-auto pt-1">
+                                    <div class="w-full progress-bar-bg rounded-full h-1.5">
+                                        <div class="progress-bar bg-gray-400 h-1.5 rounded-full"></div>
+                                    </div>
+                                    <p class="text-xs text-right mt-1 text-gray-500">0/6</p>
+                                </div>
+                            </div>`;
+                        
+                        const cardElement = cell.firstElementChild;
+                        if (!isExpired) {
+                            onSnapshot(doc(db, `/artifacts/${appId}/public/data/courses`, courseId), (docSnap) => {
+                                if (!docSnap.exists()) {
+                                    setDoc(docSnap.ref, { attendees: [], courseName, day: dayName, time });
+                                } else {
+                                    updateCardUI(courseId, docSnap.data(), classDateTime);
+                                }
+                            });
+                            cardElement.addEventListener('click', () => openBookingModal(courseId, classDateTime));
+                        } else {
+                            updateCardUI(courseId, null, classDateTime);
+                        }
+                    }
+                    scheduleFragment.appendChild(cell);
+                });
+            });
+            scheduleContainer.appendChild(scheduleFragment);
+        }
+
+        function updateCardUI(courseId, data, classDateTime) {
+            const card = document.getElementById(courseId);
+            if (!card) return;
+            const isExpired = new Date() > classDateTime;
+
+            if (isExpired) {
+                card.className = 'course-card h-full p-2 rounded-lg flex flex-col justify-between border text-left status-expired';
+                card.querySelector('.font-bold').classList.add('text-gray-500');
+                card.querySelector('.attendee-info').innerHTML = '<span class="font-bold">課程已結束</span>';
+                return;
+            }
+
+            const { attendees = [], courseName } = data;
+            const detail = courseDetails[courseName];
+            const currentCount = attendees.reduce((sum, att) => sum + (att.count || 1), 0);
+            
+            card.querySelector('.progress-bar').style.width = `${(currentCount / 6) * 100}%`;
+            card.querySelector('.mt-auto p').textContent = `${currentCount}/6`;
+            
+            const attendeeInfo = card.querySelector('.attendee-info');
+            attendeeInfo.innerHTML = attendees.length > 0
+                ? `<span class="font-bold">已報名:</span> ${attendees.map(a => `${a.name}(${a.count}人)`).join(', ')}`
+                : '';
+
+            const courseNameP = card.querySelector('div > p.font-bold');
+            courseNameP.className = `font-bold text-center ${detail.textColor}`;
+            card.className = card.className.replace(/border-\w+-\d+/, detail.borderColor);
+
+            ['status-pending', 'status-confirmed', 'status-full'].forEach(c => card.classList.remove(c));
+            ['bg-yellow-400', 'bg-green-500', 'bg-red-500'].forEach(c => card.querySelector('.progress-bar').classList.remove(c));
+
+            if (currentCount >= 6) {
+                card.classList.add('status-full');
+                card.querySelector('.progress-bar').classList.add('bg-red-500');
+            } else if (currentCount >= detail.min) {
+                card.classList.add('status-confirmed');
+                card.querySelector('.progress-bar').classList.add('bg-green-500');
+            } else {
+                card.classList.add('status-pending');
+                card.querySelector('.progress-bar').classList.add('bg-yellow-400');
+            }
+        }
+        
+        prevWeekBtn.addEventListener('click', () => { currentDate.setDate(currentDate.getDate() - 7); initializeSchedule(); });
+        nextWeekBtn.addEventListener('click', () => { currentDate.setDate(currentDate.getDate() + 7); initializeSchedule(); });
+        todayBtn.addEventListener('click', () => { currentDate = new Date(); initializeSchedule(); });
+
+        async function openBookingModal(courseId, classDateTime) {
+            const docSnap = await getDoc(doc(db, `/artifacts/${appId}/public/data/courses`, courseId));
+            if (!docSnap.exists()) return;
+
+            const data = docSnap.data();
+            const { attendees = [], courseName, day, time } = data;
+            const detail = courseDetails[courseName];
+            const currentCount = attendees.reduce((sum, att) => sum + (att.count || 1), 0);
+            const isBooked = attendees.some(att => att.userId === currentUserId);
+            
+            const bookingClosed = (classDateTime.getTime() - new Date().getTime()) < (2 * 60 * 60 * 1000);
+
+            document.getElementById('modalCourseName').textContent = courseName;
+            document.getElementById('modalCourseTime').textContent = `${classDateTime.toLocaleDateString()} ${day} ${time}`;
+            document.getElementById('modalHeader').className = `p-5 border-b rounded-t-2xl ${detail.color}`;
+            document.getElementById('modalSpots').textContent = `${currentCount}/6 人`;
+            
+            const bookingCountInput = document.getElementById('bookingCount');
+            bookingCountInput.value = 1;
+            bookingCountInput.max = 6 - currentCount > 0 ? 6 - currentCount : 1;
+
+            const attendeesListContainer = document.getElementById('attendeesListContainer');
+            if (attendees.length > 0) {
+                document.getElementById('attendeesList').innerHTML = attendees.map(a => `${a.name}(${a.count}人)`).join(', ');
+                attendeesListContainer.classList.remove('hidden');
+            } else {
+                attendeesListContainer.classList.add('hidden');
+            }
+            
+            const statusText = document.getElementById('modalStatus');
+            const progressBar = document.getElementById('modalProgressBar');
+            progressBar.style.width = `${(currentCount / 6) * 100}%`;
+            ['bg-yellow-400', 'bg-green-500', 'bg-red-500'].forEach(c => progressBar.classList.remove(c));
+            
+            if (currentCount >= 6) { statusText.textContent = '已額滿'; statusText.className = 'font-bold text-red-600'; progressBar.classList.add('bg-red-500'); }
+            else if (currentCount >= detail.min) { statusText.textContent = '確定開課'; statusText.className = 'font-bold text-green-600'; progressBar.classList.add('bg-green-500'); }
+            else { statusText.textContent = '招生中'; statusText.className = 'font-bold text-yellow-600'; progressBar.classList.add('bg-yellow-400'); }
+            
+            const addBtn = document.getElementById('addBookingBtn');
+            const cancelBtn = document.getElementById('cancelBookingBtn');
+            const bookingCountContainer = document.getElementById('bookingCountContainer');
+            
+            document.getElementById('modalUserInfo').classList.toggle('hidden', !isBooked);
+            addBtn.classList.toggle('hidden', isBooked || currentCount >= 6);
+            bookingCountContainer.classList.toggle('hidden', isBooked || currentCount >= 6);
+            cancelBtn.classList.toggle('hidden', !isBooked);
+
+            [addBtn, cancelBtn].forEach(btn => {
+                btn.disabled = bookingClosed;
+                btn.classList.toggle('bg-gray-400', bookingClosed);
+                btn.classList.toggle('cursor-not-allowed', bookingClosed);
+            });
+            document.getElementById('modalDeadlineInfo').classList.toggle('hidden', !bookingClosed);
+
+            addBtn.onclick = () => {
+                if (!currentUserName) { alert('請先輸入並儲存您的姓名！'); return; }
+                const count = parseInt(bookingCountInput.value, 10);
+                if (count > 0 && (currentCount + count) <= 6) {
+                    showConfirmation(`確定要為 ${count} 人預約「${courseName}」嗎？`, () => handleBooking(courseId, 'add', count));
+                } else {
+                    alert('報名人數超過剩餘名額！');
+                }
+            };
+            cancelBtn.onclick = () => showConfirmation(`確定要取消您的「${courseName}」預約嗎？`, () => handleBooking(courseId, 'remove'));
+            
+            bookingModal.classList.remove('opacity-0', 'pointer-events-none');
+            bookingModal.querySelector('.modal-content').classList.remove('-translate-y-10');
+        }
+
+        document.getElementById('closeModalBtn').addEventListener('click', () => closeModal(bookingModal));
+
+        function closeModal(modalElement) {
+            modalElement.classList.add('opacity-0', 'pointer-events-none');
+            modalElement.querySelector('.modal-content')?.classList.add('-translate-y-10');
+        }
+
+        function showConfirmation(message, onConfirm) {
+            const msgEl = document.getElementById('confirmMessage');
+            const yesBtn = document.getElementById('confirmYesBtn');
+            const noBtn = document.getElementById('confirmNoBtn');
+            msgEl.textContent = message;
+            
+            const confirmHandler = () => { onConfirm(); closeModal(confirmModal); };
+            const cancelHandler = () => closeModal(confirmModal);
+
+            yesBtn.onclick = confirmHandler;
+            noBtn.onclick = cancelHandler;
+            
+            confirmModal.classList.remove('opacity-0', 'pointer-events-none');
+        }
+
+        async function handleBooking(courseId, action, count = 1) {
+            const courseDocRef = doc(db, `/artifacts/${appId}/public/data/courses`, courseId);
+            try {
+                const docSnap = await getDoc(courseDocRef);
+                const attendees = docSnap.data().attendees || [];
+                let newAttendees;
+
+                if (action === 'add') {
+                    newAttendees = [...attendees, { userId: currentUserId, name: currentUserName, count }];
+                } else {
+                    newAttendees = attendees.filter(att => att.userId !== currentUserId);
+                }
+                
+                await setDoc(courseDocRef, { attendees: newAttendees }, { merge: true });
+                closeModal(bookingModal);
+            } catch (error) { console.error("Booking failed: ", error); alert("操作失敗，請稍後再試。"); }
+        }
+        
+        function initializeAdminView() { console.log("Admin view loaded."); }
+        function displayError(message) { document.body.innerHTML = `<div class="p-8 text-center bg-red-100 text-red-800"><h1 class="font-bold text-2xl">應用程式錯誤</h1><p>${message}</p></div>`; }
+    </script>
+</body>
+</html>
+
