@@ -94,7 +94,7 @@
         </div>
 
         <footer class="text-center mt-8 text-sm text-gray-500">
-            <p>此為模擬系統，所有課程與預約資料僅供展示。 </p>
+            <p>Happy Exercise! </p>
         </footer>
     </div>
 
@@ -157,8 +157,6 @@
         import { getFirestore, doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         
-        // --- ▼▼▼ 請將 Firebase 設定貼在這裡 ▼▼▼ ---
-        // 請參考 "Firebase 設定與部署教學指南.md" 的第五步，將您的 firebaseConfig 物件貼在此處取代下一行。
         const firebaseConfig = {
 			  apiKey: "AIzaSyBIeXTW1yCsASMPY64HhdDoXYIygl08f34",
 			  authDomain: "jps-booking-system.firebaseapp.com",
@@ -206,14 +204,13 @@
             "基礎肌力": { type: "肌力", min: 1, color: "bg-blue-100", textColor: "text-blue-800", borderColor: "border-blue-300" },
             "懸吊TRX": { type: "肌力", min: 1, color: "bg-indigo-100", textColor: "text-indigo-800", borderColor: "border-indigo-300" },
             "壺鈴綜合訓練": { type: "肌力", min: 1, color: "bg-purple-100", textColor: "text-purple-800", borderColor: "border-purple-300" },
-            "基礎跳床": { type: "有氧", min: 3, color: "bg-yellow-100", textColor: "text-yellow-800", borderColor: "border-yellow-300" },
         };
         
         const schedule = {
-            "週一": { "11:15-12:00": "入門階梯", "19:15-20:00": "入門跳床", "20:15-21:15": "懸吊TRX" },
+            "週一": { "18:15-19:00": "壺鈴綜合訓練", "19:15-20:00": "入門跳床" },
             "週二": { "10:00-10:45": "入門跳床", "14:00-14:45": "入門階梯", "19:15-20:00": "入門跳床", "20:15-21:15": "壺鈴綜合訓練" },
             "週三": { "10:00-10:45": "基礎肌力", "11:15-12:00": "懸吊TRX", "18:15-19:00": "基礎肌力", "19:15-20:00": "燃脂跳床" },
-            "週四": { "10:00-10:45": "基礎肌力", "11:15-12:00": "入門階梯", "14:00-14:45": "懸吊TRX", "18:15-19:00": "基礎跳床", "19:15-20:00": "基礎跳床", "20:15-21:15": "懸吊TRX" },
+            "週四": { "10:00-10:45": "基礎肌力", "11:15-12:00": "入門階梯", "14:00-14:45": "懸吊TRX", "18:15-19:00": "入門跳床", "20:15-21:15": "懸吊TRX" },
             "週五": { "10:00-10:45": "入門跳床", "11:15-12:00": "壺鈴綜合訓練", "14:00-14:45": "基礎肌力", "18:15-19:00": "入門階梯", "19:15-20:00": "燃脂跳床", "20:15-21:15": "基礎肌力" },
             "週六": { "10:00-10:45": "入門跳床", "11:15-12:00": "燃脂跳床" }
         };
@@ -408,7 +405,7 @@
                 : '';
 
             const courseNameP = card.querySelector('div > p.font-bold');
-            courseNameP.className = `font-bold text-center ${detail.textColor}`;
+            if (courseNameP) courseNameP.className = `font-bold text-center ${detail.textColor}`;
             card.className = card.className.replace(/border-\w+-\d+/, detail.borderColor);
 
             ['status-pending', 'status-confirmed', 'status-full'].forEach(c => card.classList.remove(c));
@@ -544,4 +541,5 @@
     </script>
 </body>
 </html>
+
 
