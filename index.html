@@ -488,10 +488,157 @@
             }
         }
         
-        function openEditDayModal(date, dayName, overrideData) {
-            // Placeholder for admin functionality
-            alert(`管理功能：編輯 ${date} (${dayName}) 的課程。\n目前的覆寫資料: ${JSON.stringify(overrideData)}`);
+        async function openEditDayModal(date, dayName, overrideData) {
+            const daySchedule = schedule[dayName] || {};
+            
+            let classEditHtml = Object.keys(daySchedule).map(originalTime => {
+                const courseName = schedule[dayName][originalTime];
+                const overrideClass = overrideData?.classChanges?.[originalTime] || courseName;
+                const overrideTime = overrideData?.timeChanges?.[originalTime] || originalTime;
+                const isCancelled = overrideData?.cancelledClasses?.includes(originalTime);
+
+                const courseOptions = Object.keys(courseDetails).map(cName => 
+                    `<option value="${cName}" ${cName === overrideClass ? 'selected' : ''}>${cName}</option>`
+                ).join('');
+
+                return `
+                    <div class="class-edit-item grid grid-cols-[auto,1fr,1fr] md:grid-cols-[20px,1fr,1fr,1fr] gap-3 items-center p-3 bg-gray-50 rounded-lg" data-original-time="${originalTime}">
+                        <input type="checkbox" class="cancel-checkbox h-5 w-5" ${isCancelled ? 'checked' : ''}>
+                        <div class="text-sm">
+                            <p class="font-semibold ${isCancelled ? 'line-through' : ''}">${courseName}</p>
+                            <p class="text-xs text-gray-500">${originalTime}</p>
+                        </div>
+                        <div class="md:col-span-1">
+                            <label class="block text-xs text-gray-600 mb-1">更換課程</label>
+                            <select class="course-select w-full text-sm p-1 border rounded-md" ${isCancelled ? 'disabled' : ''}>${courseOptions}</select>
+                        </div>
+                         <div class="md:col-span-1">
+                            <label class="block text-xs text-gray-600 mb-1">修改時間</label>
+                            <input type="text" class="time-input w-full text-sm p-1 border rounded-md" value="${overrideTime}" ${isCancelled ? 'disabled' : ''}>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            if (!classEditHtml) {
+                classEditHtml = '<p class="text-center text-gray-500 py-4">本日無預設課程。</p>';
+            }
+
+            editDayModalEl.innerHTML = `
+                <div class="modal-content bg-white rounded-xl shadow-lg w-11/12 max-w-2xl m-4 p-6">
+                    <h3 class="text-xl font-bold text-center mb-1">編輯 ${date} (${dayName})</h3>
+                    <div class="text-center text-gray-500 mb-4">
+                        <label class="flex items-center justify-center gap-2 cursor-pointer">
+                            <input type="checkbox" id="restDayCheckbox" class="h-5 w-5" ${overrideData?.status === 'rest_day' ? 'checked' : ''}>
+                            設定為公休日
+                        </label>
+                    </div>
+                    <div id="class-edit-container" class="space-y-3 ${overrideData?.status === 'rest_day' ? 'opacity-40 pointer-events-none' : ''}">
+                        ${classEditHtml}
+                    </div>
+                    <div class="flex flex-wrap justify-end gap-3 mt-6">
+                         ${overrideData ? '<button id="deleteOverridesBtn" class="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 text-sm">移除本日設定</button>' : ''}
+                        <button type="button" class="close-modal-btn px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">取消</button>
+                        <button id="saveOverridesBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">儲存變更</button>
+                    </div>
+                </div>
+            `;
+
+            const restDayCheckbox = editDayModalEl.querySelector('#restDayCheckbox');
+            const classEditContainer = editDayModalEl.querySelector('#class-edit-container');
+            restDayCheckbox.addEventListener('change', (e) => {
+                 classEditContainer.classList.toggle('opacity-40', e.target.checked);
+                 classEditContainer.classList.toggle('pointer-events-none', e.target.checked);
+            });
+
+            editDayModalEl.querySelectorAll('.cancel-checkbox').forEach(box => {
+                box.addEventListener('change', (e) => {
+                    const item = e.target.closest('.class-edit-item');
+                    item.querySelector('.font-semibold').classList.toggle('line-through', e.target.checked);
+                    item.querySelector('.course-select').disabled = e.target.checked;
+                    item.querySelector('.time-input').disabled = e.target.checked;
+                });
+            });
+
+            editDayModalEl.querySelector('.close-modal-btn').addEventListener('click', () => closeModal(editDayModalEl));
+            editDayModalEl.querySelector('#saveOverridesBtn').addEventListener('click', () => handleSaveOverrides(date, dayName));
+            
+            const deleteBtn = editDayModalEl.querySelector('#deleteOverridesBtn');
+            if(deleteBtn) {
+                deleteBtn.addEventListener('click', () => handleDeleteOverrides(date));
+            }
+
+            openModal(editDayModalEl);
         }
+
+        async function handleSaveOverrides(date, dayName) {
+            const isRestDay = document.getElementById('restDayCheckbox').checked;
+            const newOverrideData = { date };
+
+            if (isRestDay) {
+                newOverrideData.status = 'rest_day';
+            } else {
+                newOverrideData.cancelledClasses = [];
+                newOverrideData.classChanges = {};
+                newOverrideData.timeChanges = {};
+
+                document.querySelectorAll('.class-edit-item').forEach(item => {
+                    const originalTime = item.dataset.originalTime;
+                    const originalCourse = schedule[dayName][originalTime];
+                    
+                    if (item.querySelector('.cancel-checkbox').checked) {
+                        newOverrideData.cancelledClasses.push(originalTime);
+                        return; // Skip other checks if cancelled
+                    }
+
+                    const newCourse = item.querySelector('.course-select').value;
+                    if (newCourse !== originalCourse) {
+                        newOverrideData.classChanges[originalTime] = newCourse;
+                    }
+
+                    const newTime = item.querySelector('.time-input').value;
+                    if (newTime !== originalTime) {
+                        newOverrideData.timeChanges[originalTime] = newTime;
+                    }
+                });
+
+                // Clean up empty objects/arrays
+                if (Object.keys(newOverrideData.classChanges).length === 0) delete newOverrideData.classChanges;
+                if (Object.keys(newOverrideData.timeChanges).length === 0) delete newOverrideData.timeChanges;
+                if (newOverrideData.cancelledClasses.length === 0) delete newOverrideData.cancelledClasses;
+            }
+            
+            // Do not save if the object is empty besides the date
+            if (Object.keys(newOverrideData).length <= 1) {
+                await handleDeleteOverrides(date); // This also closes modal and re-initializes
+                return;
+            }
+
+            const docRef = doc(db, `/artifacts/${appId}/public/data/schedule_overrides`, date);
+            try {
+                await setDoc(docRef, newOverrideData);
+            } catch (error) {
+                console.error("Failed to save overrides:", error);
+                alert("儲存設定失敗！");
+            } finally {
+                closeModal(editDayModalEl);
+                initializeSchedule();
+            }
+        }
+        
+        async function handleDeleteOverrides(date) {
+            const docRef = doc(db, `/artifacts/${appId}/public/data/schedule_overrides`, date);
+            try {
+                await deleteDoc(docRef);
+            } catch (error) {
+                console.error("Failed to delete overrides:", error);
+                alert("移除設定失敗！");
+            } finally {
+                closeModal(editDayModalEl);
+                initializeSchedule();
+            }
+        }
+
 
         function initializeAdminView() {
             // Placeholder for admin functionality
@@ -666,6 +813,7 @@
     </script>
 </body>
 </html>
+
 
 
 
