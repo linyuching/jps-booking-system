@@ -31,14 +31,7 @@
         .schedule-grid {
             display: grid;
             grid-template-columns: 60px repeat(6, 1fr);
-            grid-template-rows: auto;
             gap: 4px;
-        }
-        .time-slot {
-            writing-mode: vertical-rl;
-            text-orientation: mixed;
-            transform: rotate(180deg);
-            white-space: nowrap;
         }
         .modal {
             transition: opacity 0.25s ease;
@@ -84,7 +77,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                 </button>
             </div>
-            <div id="scheduleContainer" class="schedule-grid text-center text-xs md:text-sm"></div>
+            <div id="scheduleContainer" class="space-y-1"></div>
         </div>
 
         <footer class="text-center mt-8 text-sm text-gray-500">
@@ -112,7 +105,7 @@
         import { getFirestore, doc, onSnapshot, updateDoc, setDoc, getDoc, collection, query, where, getDocs, arrayUnion, arrayRemove, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, signOut, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         
-       const firebaseConfig = {
+        const firebaseConfig = {
 			  apiKey: "AIzaSyBIeXTW1yCsASMPY64HhdDoXYIygl08f34",
 			  authDomain: "jps-booking-system.firebaseapp.com",
 			  projectId: "jps-booking-system",
@@ -138,7 +131,6 @@
         let currentDate = new Date();
         let isAdmin = false;
 
-        const timeSlots = ["10:00-10:45", "11:00-12:00", "11:15-12:00", "14:00-14:45", "14:00-15:00", "18:15-19:00", "19:15-20:00", "20:15-21:00", "20:15-21:15"];
         const weekdays = ["週一", "週二", "週三", "週四", "週五", "週六"];
         const courseDetails = {
             "入門跳床": { type: "有氧", min: 3, max: 8 }, 
@@ -347,6 +339,25 @@ service cloud.firestore {
             `;
         }
         
+        function getWeekInfo(refDate) { 
+             const date = new Date(refDate);
+            const day = date.getDay();
+            const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+            const monday = new Date(new Date(date).setDate(diff));
+            const weekDates = Array.from({length: 6}, (_, i) => new Date(new Date(monday).setDate(monday.getDate() + i)));
+            const saturday = weekDates[5];
+            const rangeStr = `${monday.getMonth() + 1}/${monday.getDate()} - ${saturday.getMonth() + 1}/${saturday.getDate()}`;
+            return { weekDates, rangeStr };
+         }
+
+        function getClassDateTime(date, time) { 
+             const [startTime] = time.split('-');
+            const [hours, minutes] = startTime.split(':');
+            const classDateTime = new Date(date);
+            classDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+            return classDateTime;
+         }
+
         async function initializeSchedule() {
             if (!currentUserId) return;
             const { weekDates, rangeStr } = getWeekInfo(currentDate);
@@ -372,8 +383,8 @@ service cloud.firestore {
             scheduleContainer.innerHTML = '';
             const scheduleFragment = document.createDocumentFragment();
             
-            const headerFrag = document.createDocumentFragment();
-            headerFrag.appendChild(document.createElement('div'));
+            const headerRow = document.createElement('div');
+            headerRow.className = 'schedule-grid';
             weekdays.forEach((day, index) => {
                 const date = weekDates[index];
                 const dateString = date.toISOString().slice(0, 10);
@@ -384,30 +395,24 @@ service cloud.firestore {
                     adminBtn = `<button data-date="${dateString}" data-day-name="${day}" class="edit-day-btn text-xs mt-1 p-1 bg-gray-200 rounded">⚙️ 設定</button>`;
                 }
                 dayHeader.innerHTML = `<span>${day}</span><span class="text-xs font-normal">${date.getMonth()+1}/${date.getDate()}</span>${adminBtn}`;
-                headerFrag.appendChild(dayHeader);
+                headerRow.appendChild(dayHeader);
             });
-            scheduleFragment.appendChild(headerFrag);
+            scheduleFragment.appendChild(headerRow);
 
             const sortedTimeSlots = [...new Set(Object.values(schedule).flatMap(day => Object.keys(day)))].sort();
 
             sortedTimeSlots.forEach((time, timeIndex) => {
-                const timeLabel = document.createElement('div');
+                const row = document.createElement('div');
+                row.className = 'schedule-grid';
+
                 const startHour = parseInt(time.split(':')[0]);
-                
                 const prevTime = timeIndex > 0 ? sortedTimeSlots[timeIndex - 1] : null;
                 const prevStartHour = prevTime ? parseInt(prevTime.split(':')[0]) : -1;
 
                 const isAfternoonStart = startHour >= 12 && prevStartHour < 12;
                 const isEveningStart = startHour >= 18 && prevStartHour < 18;
-
                 const separatorClass = (isAfternoonStart || isEveningStart) ? 'border-t-2 border-gray-300' : '';
                 
-                const bgColorClass = startHour < 12 ? 'bg-orange-50' : (startHour < 18 ? 'bg-sky-50' : 'bg-indigo-50');
-                const textColorClass = startHour < 12 ? 'text-orange-800' : (startHour < 18 ? 'text-sky-800' : 'text-indigo-800');
-                timeLabel.className = `font-bold ${textColorClass} p-2 text-center time-slot flex items-center justify-center ${bgColorClass} rounded-lg ${separatorClass}`;
-                timeLabel.textContent = time;
-                scheduleFragment.appendChild(timeLabel);
-
                 weekDates.forEach((date, dayIndex) => {
                     const dateString = date.toISOString().slice(0, 10);
                     const dayName = weekdays[dayIndex];
@@ -462,8 +467,9 @@ service cloud.firestore {
                             }
                         }
                     }
-                    scheduleFragment.appendChild(cell);
+                     row.appendChild(cell);
                 });
+                scheduleFragment.appendChild(row);
             });
             scheduleContainer.appendChild(scheduleFragment);
             
@@ -475,316 +481,6 @@ service cloud.firestore {
                 });
             });
         }
-
-        function updateCardUI(courseId, data, classDateTime, overrideData) {
-            const card = document.getElementById(courseId);
-            if (!card) return;
-            
-            const originalTime = courseId.substring(11);
-            let finalCourseName = overrideData?.classChanges?.[originalTime] || data.courseName;
-            let finalTime = overrideData?.timeChanges?.[originalTime] || originalTime;
-
-            const isExpired = new Date() > classDateTime;
-            if (isExpired) {
-                card.className = 'course-card h-full p-2 rounded-lg flex flex-col justify-between border text-left status-expired';
-                card.querySelector('.font-bold').classList.add('text-gray-500');
-                card.querySelector('.attendee-info').innerHTML = '<span class="font-bold">課程已結束</span>';
-                return;
-            }
-
-            const { attendees = [] } = data;
-            const detail = courseDetails[finalCourseName];
-            const maxAttendees = detail?.max || 6;
-            const currentCount = attendees.reduce((sum, att) => sum + (att.count || 1), 0);
-            
-            card.querySelector('.progress-bar').style.width = `${(currentCount / maxAttendees) * 100}%`;
-            card.querySelector('.mt-auto p').textContent = `${currentCount}/${maxAttendees}`;
-            
-            card.querySelector('.attendee-info').innerHTML = attendees.length > 0 ? `<span class="font-bold">已報名:</span> ${attendees.map(a => `${a.name}(${a.count}人)`).join(', ')}` : '';
-
-            const courseNameP = card.querySelector('div > p.font-bold');
-            const timeP = card.querySelector('div > p.text-xs');
-            if(courseNameP && detail) {
-                 courseNameP.className = `font-bold text-center ${detail.textColor || 'text-gray-800'}`;
-                 card.className = card.className.replace(/border-[\w-]+/, detail.borderColor || 'border-gray-300');
-            }
-             if (courseNameP) courseNameP.textContent = finalCourseName;
-             if (timeP) timeP.textContent = finalTime;
-
-
-            ['status-pending', 'status-confirmed', 'status-full'].forEach(c => card.classList.remove(c));
-            ['bg-yellow-400', 'bg-green-500', 'bg-red-500'].forEach(c => card.querySelector('.progress-bar').classList.remove(c));
-
-            if (currentCount >= maxAttendees) { card.classList.add('status-full'); card.querySelector('.progress-bar').classList.add('bg-red-500'); }
-            else if (detail && currentCount >= detail.min) { card.classList.add('status-confirmed'); card.querySelector('.progress-bar').classList.add('bg-green-500'); }
-            else { card.classList.add('status-pending'); card.querySelector('.progress-bar').classList.add('bg-yellow-400'); }
-        }
-
-        [prevWeekBtn, nextWeekBtn, todayBtn].forEach(btn => btn.addEventListener('click', (e) => {
-            if(e.currentTarget.id === 'prevWeekBtn') currentDate.setDate(currentDate.getDate() - 7);
-            else if(e.currentTarget.id === 'nextWeekBtn') currentDate.setDate(currentDate.getDate() + 7);
-            else currentDate = new Date();
-            initializeSchedule();
-        }));
-
-        async function openBookingModal(courseId, classDateTime) {
-             const docRef = doc(db, `/artifacts/${appId}/public/data/courses`, courseId);
-            let docSnap = await getDoc(docRef);
-            
-            const dateString = courseId.substring(0, 10);
-            const time = courseId.substring(11);
-            const dayIndex = new Date(dateString).getDay() - 1;
-            const dayName = weekdays[dayIndex >= 0 ? dayIndex : 6];
-            
-            const overrideDoc = await getDoc(doc(db, `/artifacts/${appId}/public/data/schedule_overrides`, dateString));
-            const overrideData = overrideDoc.exists() ? overrideDoc.data() : null;
-            let finalCourseName = overrideData?.classChanges?.[time] || schedule[dayName]?.[time];
-            let finalTime = overrideData?.timeChanges?.[time] || time;
-
-            if (!docSnap.exists()) {
-                if(finalCourseName) {
-                    await setDoc(docRef, { attendees: [], courseName: finalCourseName, day: dayName, time: time });
-                    docSnap = await getDoc(docRef);
-                } else { return; }
-            }
-            const data = docSnap.data();
-            
-            const { attendees = [] } = data;
-            const courseName = finalCourseName;
-            const detail = courseDetails[courseName];
-            const maxAttendees = detail?.max || 6;
-            const currentCount = attendees.reduce((sum, att) => sum + (att.count || 1), 0);
-            const myBooking = attendees.find(att => att.userId === currentUserId);
-            const bookingClosed = (getClassDateTime(new Date(dateString), finalTime).getTime() - Date.now()) < (2 * 60 * 60 * 1000);
-            
-            if (isAdmin) {
-                 bookingModalEl.innerHTML = `
-                 <div class="modal-content transform -translate-y-10 bg-white rounded-2xl shadow-xl w-11/12 max-w-md m-4">
-                    <div class="p-5 border-b rounded-t-2xl"><h3 class="text-2xl font-bold">${courseName}</h3><p class="text-gray-500">${classDateTime.toLocaleDateString()} ${dayName} ${finalTime}</p></div>
-                    <div class="p-6 space-y-4">
-                        <div>
-                            <p class="font-bold text-lg">預約狀態: ${currentCount}/${maxAttendees} 人</p>
-                            <div class="w-full progress-bar-bg rounded-full h-2.5 mt-1"><div id="modalProgressBar" class="h-2.5 rounded-full" style="width: ${(currentCount/maxAttendees)*100}%"></div></div>
-                        </div>
-                        <div class="pt-4 border-t mt-4">
-                             <h4 class="font-bold text-base mb-2">已報名學員</h4>
-                             <ul id="admin-attendee-list" class="text-sm space-y-2">${attendees.length > 0 ? attendees.map(a => `<li class="flex justify-between items-center"><span>${a.name}(${a.count}人)</span><button data-user-id="${a.userId}" class="admin-cancel-in-modal text-xs bg-red-100 text-red-700 px-2 py-1 rounded">取消</button></li>`).join('') : '<p class="text-gray-500">尚無人報名</p>'}</ul>
-                        </div>
-                        <div class="pt-4 border-t mt-4">
-                            <h4 class="font-bold text-lg mb-2">管理者代為報名</h4>
-                            <div class="mb-2">
-                                <label for="adminStudentName" class="block text-sm font-medium text-gray-700">學員姓名</label>
-                                <input type="text" id="adminStudentName" placeholder="請輸入學員姓名" class="w-full p-2 border border-gray-300 rounded-md mt-1">
-                            </div>
-                            <div>
-                                <label for="adminBookingCount" class="block text-sm font-medium text-gray-700">報名人數</label>
-                                <input type="number" id="adminBookingCount" value="1" min="1" max="${maxAttendees-currentCount}" class="w-full p-2 border border-gray-300 rounded-md mt-1">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="flex items-center justify-end p-5 border-t space-x-2 rounded-b-2xl bg-gray-50">
-                        <button class="close-modal-btn px-4 py-2 bg-gray-200 text-gray-800 rounded-lg">關閉</button>
-                        <button id="adminAddBookingBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg ${currentCount >= maxAttendees ? 'hidden' : ''}">新增預約</button>
-                    </div>
-                </div>`;
-            } else { // User Modal
-                 bookingModalEl.innerHTML = `
-                 <div class="modal-content transform -translate-y-10 bg-white rounded-2xl shadow-xl w-11/12 max-w-md m-4">
-                    <div class="p-5 border-b rounded-t-2xl"><h3 class="text-2xl font-bold">${courseName}</h3><p class="text-gray-500">${classDateTime.toLocaleDateString()} ${dayName} ${finalTime}</p></div>
-                     <div class="p-6 space-y-4">
-                         <div><p class="font-bold text-lg">預約狀態: ${currentCount}/${maxAttendees} 人</p><div class="w-full progress-bar-bg rounded-full h-2.5 mt-1"><div id="modalProgressBar" class="h-2.5 rounded-full" style="width: ${(currentCount/maxAttendees)*100}%"></div></div></div>
-                         <div class="${attendees.length > 0 ? '' : 'hidden'}"><p class="font-bold text-sm mb-1">已報名學員：</p><div class="text-sm text-gray-600 max-h-20 overflow-y-auto bg-gray-50 p-2 rounded-md">${attendees.map(a => `${a.name}(${a.count}人)`).join(', ')}</div></div>
-                        <div class="pt-2 ${myBooking || currentCount >= maxAttendees ? 'hidden' : ''}">
-                            <label for="bookingCount" class="block text-sm font-medium text-gray-700 mb-1">報名人數</label>
-                            <input type="number" id="bookingCount" value="1" min="1" max="${maxAttendees-currentCount}" class="w-full p-2 border border-gray-300 rounded-md text-center">
-                        </div>
-                        <p class="text-sm text-red-600 bg-red-100 p-2 rounded-md">${detail?.min || 1} 人以上即可開班，${maxAttendees} 人額滿。</p>
-                        <p class="text-sm text-blue-600 bg-blue-100 p-2 rounded-md ${myBooking ? '' : 'hidden'}">您已用「${myBooking?.name}」預約了 ${myBooking?.count} 位。</p>
-                        <p class="text-sm text-center font-bold text-red-700 bg-red-100 p-2 rounded-md ${bookingClosed ? '' : 'hidden'}">已截止預約/取消 (開課前 2 小時)</p>
-                    </div>
-                    <div class="flex items-center justify-end p-5 border-t space-x-2 rounded-b-2xl bg-gray-50">
-                        <button class="close-modal-btn px-4 py-2 bg-gray-200 text-gray-800 rounded-lg">關閉</button>
-                        <button id="cancelBookingBtn" class="px-4 py-2 bg-red-500 text-white rounded-lg ${!myBooking || bookingClosed ? 'hidden' : ''}">取消我的預約</button>
-                        <button id="addBookingBtn" class="px-4 py-2 bg-orange-500 text-white rounded-lg ${myBooking || currentCount >= maxAttendees || bookingClosed ? 'hidden' : ''}">立即預約</button>
-                    </div>
-                </div>`;
-            }
-
-            const progressBar = bookingModalEl.querySelector('#modalProgressBar');
-            if (currentCount >= maxAttendees) { progressBar.classList.add('bg-red-500'); }
-            else if (detail && currentCount >= detail.min) { progressBar.classList.add('bg-green-500'); }
-            else { progressBar.classList.add('bg-yellow-400'); }
-            
-            bookingModalEl.querySelector('.close-modal-btn').addEventListener('click', () => closeModal(bookingModalEl));
-            
-            if(isAdmin) {
-                const adminAddBtn = bookingModalEl.querySelector('#adminAddBookingBtn');
-                if (adminAddBtn) adminAddBtn.onclick = () => {
-                    const studentName = bookingModalEl.querySelector('#adminStudentName').value.trim();
-                    const studentCount = parseInt(bookingModalEl.querySelector('#adminBookingCount').value, 10);
-                     if (!studentName) { alert('請輸入學員姓名！'); return; }
-                    if (studentCount > 0 && (currentCount + studentCount) <= maxAttendees) {
-                        const newBookingData = { userId: 'admin_booked_' + crypto.randomUUID(), name: studentName, count: studentCount };
-                        showConfirmation(`確定要為 ${studentName} 預約 ${studentCount} 位「${courseName}」嗎？`, () => handleBooking(docRef, 'add', newBookingData));
-                    } else {
-                         alert(`報名人數錯誤或超過剩餘名額 (剩餘 ${maxAttendees - currentCount} 位)`);
-                    }
-                };
-                 bookingModalEl.querySelectorAll('.admin-cancel-in-modal').forEach(btn => {
-                    btn.onclick = () => {
-                        const userIdToCancel = btn.dataset.userId;
-                        const bookingToCancel = attendees.find(att => att.userId === userIdToCancel);
-                        if (bookingToCancel) {
-                           showConfirmation(`確定要為 ${bookingToCancel.name} 取消「${courseName}」嗎？`, () => handleBooking(docRef, 'remove', bookingToCancel));
-                        }
-                    };
-                });
-            } else {
-                const addBtn = bookingModalEl.querySelector('#addBookingBtn');
-                const cancelBtn = bookingModalEl.querySelector('#cancelBookingBtn');
-                if (addBtn) addBtn.onclick = () => {
-                    if (!currentUserName || !currentUserName.trim()) {
-                        alert('請先返回主畫面輸入並儲存您的姓名！');
-                        closeModal(bookingModalEl);
-                        return;
-                    }
-                    const count = parseInt(bookingModalEl.querySelector('#bookingCount').value, 10);
-                    if (count > 0 && (currentCount + count) <= maxAttendees) {
-                        showConfirmation(`確定要為 ${currentUserName} 預約 ${count} 位「${courseName}」嗎？`, () => handleBooking(docRef, 'add', { userId: currentUserId, name: currentUserName, count }));
-                    } else {
-                        alert(`報名人數錯誤或超過剩餘名額 (剩餘 ${maxAttendees - currentCount} 位)`);
-                    }
-                };
-                if (cancelBtn) cancelBtn.onclick = () => showConfirmation(`確定要取消 ${myBooking.name}(${myBooking.count}人) 的「${courseName}」預約嗎？`, () => handleBooking(docRef, 'remove', myBooking));
-            }
-            
-            openModal(bookingModalEl);
-        }
-
-        async function openEditDayModal(dateString, dayName, currentOverride) {
-            const isRestDay = currentOverride?.status === 'rest_day';
-            const cancelledClasses = currentOverride?.cancelledClasses || [];
-            const classChanges = currentOverride?.classChanges || {};
-            const timeChanges = currentOverride?.timeChanges || {};
-            
-            const daySchedule = schedule[dayName] || {};
-            
-            const coursesHtml = Object.keys(daySchedule).sort().map(time => {
-                const defaultCourse = daySchedule[time];
-                const currentCourse = classChanges[time] || defaultCourse;
-                const currentTime = timeChanges[time] || time;
-                
-                return `
-                <div class="grid grid-cols-4 gap-2 items-center py-2 border-b">
-                    <input type="text" value="${currentTime}" data-original-time="${time}" class="class-time-input text-xs p-1 border rounded col-span-1" ${isRestDay ? 'disabled' : ''}>
-                    <select class="class-name-select text-xs p-1 border rounded col-span-2" ${isRestDay ? 'disabled' : ''}>
-                        ${Object.keys(courseDetails).map(name => `<option value="${name}" ${name === currentCourse ? 'selected' : ''}>${name}</option>`).join('')}
-                    </select>
-                    <label class="text-xs flex items-center justify-end col-span-1">
-                        停課 <input type="checkbox" data-time="${time}" class="class-cancel-toggle ml-1" ${isRestDay ? 'disabled' : ''} ${cancelledClasses.includes(time) ? 'checked' : ''}>
-                    </label>
-                </div>`;
-            }).join('');
-
-            editDayModalEl.innerHTML = `
-                <div class="modal-content bg-white rounded-xl shadow-lg w-11/12 max-w-lg m-4 p-6">
-                    <h3 class="font-bold text-lg text-center">編輯課表狀態</h3>
-                    <p class="text-center text-gray-600 mb-4">${dateString}</p>
-                    <div class="space-y-4">
-                        <div class="flex items-center justify-between p-3 bg-gray-100 rounded-lg">
-                            <span class="font-medium">設為整日公休</span> 
-                            <input type="checkbox" id="restDayToggle" ${isRestDay ? 'checked' : ''}>
-                        </div>
-                        <div id="class-management-list" class="space-y-2 ${isRestDay ? 'opacity-50 pointer-events-none' : ''}">
-                            <h4 class="font-medium mt-4 border-t pt-4">或編輯單堂課程：</h4>
-                            <div class="grid grid-cols-4 gap-2 items-center font-bold text-xs px-2">
-                                <span class="col-span-1">時間</span><span class="col-span-2">課程</span><span class="col-span-1 text-right">操作</span>
-                            </div>
-                            ${coursesHtml}
-                        </div>
-                    </div>
-                    <div class="flex justify-end gap-4 mt-6">
-                        <button class="close-modal-btn px-6 py-2 bg-gray-200 text-gray-800 rounded-lg">取消</button>
-                        <button id="saveDayBtn" class="px-6 py-2 bg-blue-600 text-white rounded-lg">儲存</button>
-                    </div>
-                </div>`;
-
-            const restDayToggle = editDayModalEl.querySelector('#restDayToggle');
-            const classManagementList = editDayModalEl.querySelector('#class-management-list');
-
-            restDayToggle.onchange = () => {
-                const disable = restDayToggle.checked;
-                classManagementList.classList.toggle('opacity-50', disable);
-                classManagementList.classList.toggle('pointer-events-none', disable);
-                classManagementList.querySelectorAll('input, select').forEach(el => {
-                    el.disabled = disable;
-                    if (disable && el.type === 'checkbox') el.checked = false;
-                });
-            };
-
-            editDayModalEl.querySelector('.close-modal-btn').onclick = () => closeModal(editDayModalEl);
-            editDayModalEl.querySelector('#saveDayBtn').onclick = async () => {
-                const docRef = doc(db, `/artifacts/${appId}/public/data/schedule_overrides`, dateString);
-                try {
-                    const isRest = restDayToggle.checked;
-                    if (isRest) {
-                        await setDoc(docRef, { date: dateString, status: 'rest_day' });
-                    } else {
-                        const newCancelledClasses = Array.from(classManagementList.querySelectorAll('.class-cancel-toggle:checked')).map(t => t.dataset.time);
-                        const newClassChanges = {};
-                        const newTimeChanges = {};
-                        
-                        classManagementList.querySelectorAll('.class-time-input').forEach(input => {
-                            const originalTime = input.dataset.originalTime;
-                            const newTime = input.value.trim();
-                            const select = input.nextElementSibling;
-                            const newCourseName = select.value;
-                            
-                            if (newTime !== originalTime) {
-                                newTimeChanges[originalTime] = newTime;
-                            }
-                            if (newCourseName !== schedule[dayName]?.[originalTime]) {
-                                newClassChanges[originalTime] = newCourseName;
-                            }
-                        });
-
-                        const hasChanges = newCancelledClasses.length > 0 || Object.keys(newClassChanges).length > 0 || Object.keys(newTimeChanges).length > 0;
-                        if (hasChanges) {
-                             await setDoc(docRef, { date: dateString, status: 'custom', cancelledClasses: newCancelledClasses, classChanges: newClassChanges, timeChanges: newTimeChanges });
-                        } else {
-                           if(currentOverride) await deleteDoc(docRef);
-                        }
-                    }
-                    closeModal(editDayModalEl);
-                    initializeSchedule();
-                } catch (error) {
-                    console.error("Failed to update day status:", error);
-                    alert("更新失敗，請稍後再試。");
-                }
-            };
-            openModal(editDayModalEl);
-        }
-
-        function showConfirmation(message, onConfirm) { /* ... same logic ... */ }
-        async function handleBooking(courseDocRef, action, bookingData) { /* ... same logic ... */ }
-        function initializeAdminView() { /* ... same logic ... */ }
-        function getWeekInfo(refDate) { 
-             const date = new Date(refDate);
-            const day = date.getDay();
-            const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-            const monday = new Date(new Date(date).setDate(diff));
-            const weekDates = Array.from({length: 6}, (_, i) => new Date(new Date(monday).setDate(monday.getDate() + i)));
-            const saturday = weekDates[5];
-            const rangeStr = `${monday.getMonth() + 1}/${monday.getDate()} - ${saturday.getMonth() + 1}/${saturday.getDate()}`;
-            return { weekDates, rangeStr };
-         }
-        function getClassDateTime(date, time) { 
-             const [startTime] = time.split('-');
-            const [hours, minutes] = startTime.split(':');
-            const classDateTime = new Date(date);
-            classDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-            return classDateTime;
-         }
     </script>
 </body>
 </html>
