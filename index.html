@@ -438,8 +438,8 @@
             const date = courseId.substring(0, 10);
             const time = courseId.substring(11);
             
-            // The name from Firestore (if it exists) has the highest priority. Otherwise, use the name passed from the renderer.
-            const finalCourseName = courseData.courseName || courseName; 
+            // ALWAYS use the course name passed from the renderer. This is the source of truth.
+            const finalCourseName = courseName; 
             const details = courseDetails[finalCourseName];
             
             if (!details) {
@@ -503,10 +503,12 @@
             const operation = isBooked ? arrayRemove(userToHandle) : arrayUnion(userToHandle);
             
             try {
+                // Try to update first. This works if the document exists.
                 await updateDoc(docRef, { attendees: operation });
             } catch (error) {
-                // If document doesn't exist, create it.
+                // If document doesn't exist, create it, but only for a new booking.
                 if (error.code === 'not-found' && !isBooked) {
+                     // Ensure courseName is passed correctly when creating a new document
                     await setDoc(docRef, { courseName: courseName, attendees: [userToHandle] });
                 } else {
                     console.error("Booking failed:", error);
@@ -807,7 +809,9 @@
                                 if (!isExpired) {
                                     cardElement.classList.add('cursor-pointer', 'transition-all', 'duration-200', 'hover:shadow-md', 'hover:-translate-y-1');
                                     const unsubscribe = onSnapshot(doc(db, `/artifacts/${appId}/public/data/courses`, courseId), (docSnap) => {
-                                        updateCardUI(courseId, docSnap.exists() ? docSnap.data() : { attendees: [], courseName: finalCourseNameToPass }, classDateTime, overrideData);
+                                        const dbData = docSnap.exists() ? docSnap.data() : { attendees: [] };
+                                        const combinedData = { attendees: dbData.attendees, courseName: finalCourseNameToPass };
+                                        updateCardUI(courseId, combinedData, classDateTime, overrideData);
                                     }, (error) => {
                                         if (error.code === 'permission-denied' && !document.querySelector('.bg-red-100')) displayPermissionsError();
                                     });
@@ -816,7 +820,9 @@
                                 } else {
                                     // For expired classes, we can just fetch the data once instead of listening
                                     getDoc(doc(db, `/artifacts/${appId}/public/data/courses`, courseId)).then(docSnap => {
-                                       updateCardUI(courseId, docSnap.exists() ? docSnap.data() : { attendees: [], courseName: finalCourseNameToPass }, classDateTime, overrideData);
+                                        const dbData = docSnap.exists() ? docSnap.data() : { attendees: [] };
+                                        const combinedData = { attendees: dbData.attendees, courseName: finalCourseNameToPass };
+                                        updateCardUI(courseId, combinedData, classDateTime, overrideData);
                                     });
                                 }
                                 td.appendChild(courseDiv);
