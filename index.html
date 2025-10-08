@@ -447,11 +447,13 @@
                 alert("無法讀取課程資訊，請稍後再試。");
                 return;
             }
-
-            const isBooked = courseData.attendees?.some(p => p.id === currentUserId);
+            
+            // The unique ID for a booking is a combination of the device ID and the name.
+            const bookingId = `${currentUserId}_${currentUserName}`;
+            const isBooked = courseData.attendees?.some(p => p.id === bookingId);
             
             let attendeeListHtml = courseData.attendees?.map((p, i) =>
-                `<li class="flex justify-between items-center ${p.id === currentUserId ? 'font-bold text-indigo-600' : ''}">
+                `<li class="flex justify-between items-center ${p.id === bookingId ? 'font-bold text-indigo-600' : ''}">
                     <span>${i + 1}. ${p.name}</span>
                     ${isAdmin ? `<button data-id="${p.id}" class="remove-attendee-btn text-red-500 text-xs hover:text-red-700">移除</button>` : ''}
                 </li>`
@@ -492,10 +494,14 @@
         }
 
         async function handleBooking(courseId, isBooked, attendeeToRemove = null, courseName = null) {
-            const userToHandle = attendeeToRemove || { id: currentUserId, name: currentUserName };
+            // If an admin is removing a user, the full object is passed in attendeeToRemove.
+            // Otherwise, we construct the object for the current user with a composite ID.
+            const userToHandle = attendeeToRemove 
+                ? attendeeToRemove
+                : { id: `${currentUserId}_${currentUserName}`, name: currentUserName };
 
-            if (!userToHandle.name && !attendeeToRemove) {
-                alert("無效的姓名，無法操作。");
+            if (!userToHandle.name) {
+                alert("請輸入有效的姓名並儲存。");
                 return;
             }
 
