@@ -434,11 +434,27 @@
             const docRef = doc(db, `/artifacts/${appId}/public/data/courses`, courseId);
             const docSnap = await getDoc(docRef);
             const courseData = docSnap.exists() ? docSnap.data() : { attendees: [] };
+            
+            const bookingId = `${currentUserId}_${currentUserName}`;
+            const bookingObject = courseData.attendees?.find(p => p.id === bookingId);
+            const isBooked = !!bookingObject;
+            
+            const now = new Date();
+            const cancellationCutoffTime = new Date(classDateTime.getTime() - 60 * 60 * 1000);
+
+            // Check time limits based on action
+            if (isBooked && now > cancellationCutoffTime) {
+                alert("已超過可取消的時間（上課前一小時）。");
+                return;
+            }
+            if (!isBooked && now > classDateTime) {
+                alert("課程已經開始，無法預約。");
+                return;
+            }
 
             const date = courseId.substring(0, 10);
             const time = courseId.substring(11);
             
-            // ALWAYS use the course name passed from the renderer. This is the source of truth.
             const finalCourseName = courseName; 
             const details = courseDetails[finalCourseName];
             
@@ -447,10 +463,6 @@
                 alert("無法讀取課程資訊，請稍後再試。");
                 return;
             }
-            
-            // The unique ID for a booking is a combination of the device ID and the name.
-            const bookingId = `${currentUserId}_${currentUserName}`;
-            const isBooked = courseData.attendees?.some(p => p.id === bookingId);
             
             let attendeeListHtml = courseData.attendees?.map((p, i) =>
                 `<li class="flex justify-between items-center ${p.id === bookingId ? 'font-bold text-indigo-600' : ''}">
@@ -477,7 +489,10 @@
             
             const bookingActionBtn = bookingModalEl.querySelector('#bookingActionBtn');
             if (bookingActionBtn) {
-                bookingActionBtn.addEventListener('click', () => handleBooking(courseId, isBooked, null, finalCourseName));
+                 bookingActionBtn.addEventListener('click', () => {
+                    // Pass the exact object for removal if cancelling
+                    handleBooking(courseId, isBooked, isBooked ? bookingObject : null, finalCourseName);
+                });
             }
 
             if (isAdmin) {
@@ -494,8 +509,6 @@
         }
 
         async function handleBooking(courseId, isBooked, attendeeToRemove = null, courseName = null) {
-            // If an admin is removing a user, the full object is passed in attendeeToRemove.
-            // Otherwise, we construct the object for the current user with a composite ID.
             const userToHandle = attendeeToRemove 
                 ? attendeeToRemove
                 : { id: `${currentUserId}_${currentUserName}`, name: currentUserName };
@@ -509,12 +522,9 @@
             const operation = isBooked ? arrayRemove(userToHandle) : arrayUnion(userToHandle);
             
             try {
-                // Try to update first. This works if the document exists.
                 await updateDoc(docRef, { attendees: operation });
             } catch (error) {
-                // If document doesn't exist, create it, but only for a new booking.
                 if (error.code === 'not-found' && !isBooked) {
-                     // Ensure courseName is passed correctly when creating a new document
                     await setDoc(docRef, { courseName: courseName, attendees: [userToHandle] });
                 } else {
                     console.error("Booking failed:", error);
@@ -811,9 +821,17 @@
                                     </div>`;
                                 
                                 const cardElement = courseDiv.firstElementChild;
-                                const isExpired = new Date() > classDateTime;
+                                const now = new Date();
+                                const isExpired = now > classDateTime;
+
+                                // A card is clickable if the class has not started yet.
                                 if (!isExpired) {
                                     cardElement.classList.add('cursor-pointer', 'transition-all', 'duration-200', 'hover:shadow-md', 'hover:-translate-y-1');
+                                    cardElement.addEventListener('click', () => openBookingModal(courseId, classDateTime, finalCourseNameToPass));
+                                }
+
+                                // We use real-time listeners for all non-expired classes
+                                if (!isExpired) {
                                     const unsubscribe = onSnapshot(doc(db, `/artifacts/${appId}/public/data/courses`, courseId), (docSnap) => {
                                         const dbData = docSnap.exists() ? docSnap.data() : { attendees: [] };
                                         const combinedData = { attendees: dbData.attendees, courseName: finalCourseNameToPass };
@@ -821,10 +839,9 @@
                                     }, (error) => {
                                         if (error.code === 'permission-denied' && !document.querySelector('.bg-red-100')) displayPermissionsError();
                                     });
-                                    unsubscribeListeners.push(unsubscribe); // Store the unsubscribe function
-                                    cardElement.addEventListener('click', () => openBookingModal(courseId, classDateTime, finalCourseNameToPass));
+                                    unsubscribeListeners.push(unsubscribe);
                                 } else {
-                                    // For expired classes, we can just fetch the data once instead of listening
+                                    // For expired classes, we can just fetch the data once
                                     getDoc(doc(db, `/artifacts/${appId}/public/data/courses`, courseId)).then(docSnap => {
                                         const dbData = docSnap.exists() ? docSnap.data() : { attendees: [] };
                                         const combinedData = { attendees: dbData.attendees, courseName: finalCourseNameToPass };
