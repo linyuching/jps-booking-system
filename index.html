@@ -52,30 +52,25 @@
 
     <div id="app" class="container mx-auto p-4 md:p-8 max-w-7xl">
 
-        <header class="text-center mb-8">
-            <h1 class="text-4xl md:text-5xl font-black gradient-text">JPS 彈跳運動教室</h1>
+        <header class="relative text-center mb-8">
+            <h1 id="main-title" class="text-4xl md:text-5xl font-black gradient-text">JPS 彈跳運動教室</h1>
             <p class="text-lg text-gray-600 mt-2">即時課程預約系統</p>
+            <div id="adminLoginIconContainer" class="absolute top-0 right-0 p-2">
+                <svg id="adminLoginIcon" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-500 cursor-pointer hover:text-blue-600 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" title="管理者登入">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+            </div>
         </header>
 
-        <div class="grid md:grid-cols-2 gap-4 mb-6">
-            <div class="p-3 bg-indigo-100 border border-indigo-200 rounded-lg text-center">
-                <p class="text-sm text-indigo-800">您的專屬 ID: 
-                    <strong id="userId" class="font-mono cursor-pointer" title="點擊以複製完整 ID">載入中...</strong>
-                    <span id="copyFeedback" class="text-xs text-green-600 font-bold ml-2 opacity-0 transition-opacity duration-300">已複製！</span>
-                </p>
-            </div>
-            <div class="p-3 bg-orange-100 border border-orange-200 rounded-lg flex items-center gap-2">
-                <label for="userNameInput" class="text-sm font-medium text-orange-800 whitespace-nowrap">您的姓名:</label>
-                <input type="text" id="userNameInput" class="w-full px-2 py-1 text-sm border-orange-300 rounded-md focus:ring-orange-500 focus:border-orange-500" placeholder="請輸入姓名以利報名">
-                <button id="saveNameBtn" class="px-3 py-1 bg-orange-500 text-white text-sm rounded-md hover:bg-orange-600 transition-colors whitespace-nowrap">儲存</button>
-            </div>
+        <div id="userInfoContainer" class="grid md:grid-cols-2 gap-4 mb-6">
+             <!-- User/Admin info will be injected here -->
         </div>
 
         <div class="flex flex-wrap justify-center gap-2 md:gap-4 mb-6 text-xs md:text-sm">
             <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-yellow-200 border border-yellow-400 mr-2"></span><span>招生中</span></div>
             <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-green-200 border border-green-400 mr-2"></span><span>確定開課</span></div>
             <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-red-200 border border-red-400 mr-2"></span><span>已額滿</span></div>
-            <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-gray-200 border border-gray-400 mr-2"></span><span>已結束</span></div>
+            <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-gray-200 border border-gray-400 mr-2"></span><span>已結束/公休</span></div>
         </div>
         
         <div class="bg-white p-4 rounded-2xl shadow-lg overflow-x-auto">
@@ -89,73 +84,33 @@
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                 </button>
             </div>
-
             <div id="scheduleContainer" class="schedule-grid text-center text-xs md:text-sm"></div>
         </div>
 
         <footer class="text-center mt-8 text-sm text-gray-500">
-            <p>Happy Exercise! </p>
         </footer>
     </div>
 
     <div id="adminPanel" class="hidden container mx-auto p-4 md:p-8 max-w-7xl mt-8">
         <div class="bg-white p-6 rounded-2xl shadow-lg">
-            <h2 class="text-2xl md:text-3xl font-bold text-center mb-6 text-gray-800">管理者後台 - 報名狀況</h2>
-            <div id="adminCourseList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
-        </div>
-    </div>
-
-    <div id="bookingModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 opacity-0 pointer-events-none">
-        <div class="modal-content transform -translate-y-10 bg-white rounded-2xl shadow-xl w-11/12 max-w-md m-4">
-            <div id="modalHeader" class="p-5 border-b rounded-t-2xl">
-                <h3 id="modalCourseName" class="text-2xl font-bold">課程名稱</h3>
-                <p id="modalCourseTime" class="text-gray-500">時間</p>
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl md:text-3xl font-bold text-gray-800">管理者後台</h2>
+                <button id="adminLogoutBtn" class="px-4 py-2 bg-red-500 text-white text-sm rounded-md hover:bg-red-600 transition-colors">登出</button>
             </div>
-            <div class="p-6 space-y-4">
-                <div>
-                    <p class="font-bold text-lg">預約狀態</p>
-                    <div class="flex items-center justify-between text-sm">
-                        <span id="modalSpots">0/6 人</span>
-                        <span id="modalStatus" class="font-bold"></span>
-                    </div>
-                    <div class="w-full progress-bar-bg rounded-full h-2.5 mt-1">
-                        <div id="modalProgressBar" class="bg-yellow-400 h-2.5 rounded-full" style="width: 0%"></div>
-                    </div>
-                </div>
-                <div id="attendeesListContainer" class="hidden">
-                    <p class="font-bold text-sm mb-1">已報名學員：</p>
-                    <div id="attendeesList" class="text-sm text-gray-600 max-h-20 overflow-y-auto bg-gray-50 p-2 rounded-md"></div>
-                </div>
-                <div id="bookingCountContainer" class="pt-2">
-                    <label for="bookingCount" class="block text-sm font-medium text-gray-700 mb-1">報名人數</label>
-                    <input type="number" id="bookingCount" value="1" min="1" class="w-full p-2 border border-gray-300 rounded-md text-center">
-                </div>
-                <p id="modalBookingRule" class="text-sm text-red-600 bg-red-100 p-2 rounded-md"></p>
-                <p id="modalUserInfo" class="text-sm text-blue-600 bg-blue-100 p-2 rounded-md"></p>
-                <p id="modalDeadlineInfo" class="hidden text-sm text-center font-bold text-red-700 bg-red-100 p-2 rounded-md">已截止預約/取消 (開課前 2 小時)</p>
-            </div>
-            <div class="flex items-center justify-end p-5 border-t space-x-2 rounded-b-2xl bg-gray-50">
-                <button id="closeModalBtn" class="px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">關閉</button>
-                <button id="cancelBookingBtn" class="hidden px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors">取消我的預約</button>
-                <button id="addBookingBtn" class="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors">立即預約</button>
-            </div>
+            <div id="adminCourseList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
         </div>
     </div>
     
-    <div id="confirmModal" class="modal fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-60 opacity-0 pointer-events-none">
-        <div class="modal-content bg-white rounded-xl shadow-lg w-11/12 max-w-sm m-4 p-6 text-center">
-            <p id="confirmMessage" class="text-lg mb-6">確定要執行此操作嗎？</p>
-            <div class="flex justify-center gap-4">
-                <button id="confirmNoBtn" class="px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300 transition-colors">取消</button>
-                <button id="confirmYesBtn" class="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors">確定</button>
-            </div>
-        </div>
-    </div>
+    <!-- Modals -->
+    <div id="adminLoginModal" class="modal fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-60 opacity-0 pointer-events-none"></div>
+    <div id="bookingModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 opacity-0 pointer-events-none"></div>
+    <div id="confirmModal" class="modal fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-60 opacity-0 pointer-events-none"></div>
+    <div id="editDayModal" class="modal fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-60 opacity-0 pointer-events-none"></div>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getFirestore, doc, onSnapshot, updateDoc, arrayUnion, arrayRemove, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, updateDoc, setDoc, getDoc, collection, query, where, getDocs, arrayUnion, arrayRemove, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, signOut, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         
         const firebaseConfig = {
 			  apiKey: "AIzaSyBIeXTW1yCsASMPY64HhdDoXYIygl08f34",
@@ -165,7 +120,6 @@
 			  messagingSenderId: "582146871191",
 			  appId: "1:582146871191:web:9b254fe25bba83fb133ed2"
 			};
-
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         let db, auth;
@@ -174,36 +128,21 @@
                 const app = initializeApp(firebaseConfig);
                 db = getFirestore(app);
                 auth = getAuth(app);
-            } catch (e) { console.error("Firebase initialization failed:", e); displayError("Firebase 初始化失敗。"); }
+            } catch (e) { console.error("Firebase initialization failed:", e); }
         } else {
-             displayError("Firebase 設定無效或不存在，請依照教學文件完成設定。");
+             document.body.innerHTML = "Firebase 設定無效或不存在。";
         }
 
         let currentUserId = null;
         let currentUserName = '';
         let currentDate = new Date();
-        
-        // --- ▼▼▼ 請將您的管理者 ID 貼在這裡 ▼▼▼ ---
-        // 請參考 "Firebase 設定與部署教學指南.md" 的第六步，將您的專屬 ID 貼在雙引號中。
-        const ADMIN_USER_ID = "14132167471352624300";
-        // --- ▲▲▲ 請將您的管理者 ID 貼在這裡 ▲▲▲ ---
+        let isAdmin = false;
 
-        const scheduleContainer = document.getElementById('scheduleContainer');
-        const bookingModal = document.getElementById('bookingModal');
-        const confirmModal = document.getElementById('confirmModal');
-        const prevWeekBtn = document.getElementById('prevWeekBtn');
-        const nextWeekBtn = document.getElementById('nextWeekBtn');
-        const todayBtn = document.getElementById('todayBtn');
-        
         const timeSlots = ["10:00-10:45", "11:15-12:00", "14:00-14:45", "18:15-19:00", "19:15-20:00", "20:15-21:15"];
         const weekdays = ["週一", "週二", "週三", "週四", "週五", "週六"];
         const courseDetails = {
-            "入門跳床": { type: "有氧", min: 3, color: "bg-green-100", textColor: "text-green-800", borderColor: "border-green-300" },
-            "入門階梯": { type: "有氧", min: 3, color: "bg-green-100", textColor: "text-green-800", borderColor: "border-green-300" },
-            "燃脂跳床": { type: "有氧", min: 3, color: "bg-red-100", textColor: "text-red-800", borderColor: "border-red-300" },
-            "基礎肌力": { type: "肌力", min: 1, color: "bg-blue-100", textColor: "text-blue-800", borderColor: "border-blue-300" },
-            "懸吊TRX": { type: "肌力", min: 1, color: "bg-indigo-100", textColor: "text-indigo-800", borderColor: "border-indigo-300" },
-            "壺鈴綜合訓練": { type: "肌力", min: 1, color: "bg-purple-100", textColor: "text-purple-800", borderColor: "border-purple-300" },
+            "入門跳床": { type: "有氧", min: 3 }, "入門階梯": { type: "有氧", min: 3 }, "燃脂跳床": { type: "有氧", min: 3 },
+            "基礎肌力": { type: "肌力", min: 1 }, "懸吊TRX": { type: "肌力", min: 1 }, "壺鈴綜合訓練": { type: "肌力", min: 1 },
         };
         
         const schedule = {
@@ -214,115 +153,231 @@
             "週五": { "10:00-10:45": "入門跳床", "11:15-12:00": "壺鈴綜合訓練", "14:00-14:45": "基礎肌力", "18:15-19:00": "入門階梯", "19:15-20:00": "燃脂跳床", "20:15-21:15": "基礎肌力" },
             "週六": { "10:00-10:45": "入門跳床", "11:15-12:00": "燃脂跳床" }
         };
+        
+        const userInfoContainer = document.getElementById('userInfoContainer');
+        const adminLoginModalEl = document.getElementById('adminLoginModal');
+        const bookingModalEl = document.getElementById('bookingModal');
+        const confirmModalEl = document.getElementById('confirmModal');
+        const editDayModalEl = document.getElementById('editDayModal');
+        
+        function main() {
+            if (!auth) {
+                document.body.innerHTML = "Firebase authentication service is not available.";
+                return;
+            }
 
-        function copyToClipboard(text) {
-            const textArea = document.createElement("textarea");
-            textArea.value = text;
-            textArea.style.position = "fixed"; 
-            textArea.style.top = "0";
-            textArea.style.left = "0";
-            textArea.style.opacity = "0";
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            try {
-                const successful = document.execCommand('copy');
-                return successful;
-            } catch (err) {
-                console.error('無法複製 ID: ', err);
-                return false;
-            } finally {
-                document.body.removeChild(textArea);
+            onAuthStateChanged(auth, user => {
+                if (user) {
+                    handleUserSession(user);
+                } else {
+                    signInAnonymously(auth).catch((error) => {
+                        console.error("Anonymous sign-in failed", error);
+                        document.body.innerHTML = "無法匿名登入，請檢查您的網路連線或瀏覽器設定。";
+                    });
+                }
+            });
+        }
+        
+        main();
+
+        function handleUserSession(user) {
+            isAdmin = !user.isAnonymous;
+            currentUserId = user.uid;
+            currentUserName = isAdmin ? user.email : (localStorage.getItem('jpsUserName') || '');
+            
+            renderUserInfo();
+            initializeSchedule();
+
+            document.getElementById('adminPanel').classList.toggle('hidden', !isAdmin);
+            if (isAdmin) {
+                initializeAdminView();
             }
         }
 
-        if (auth) {
-            onAuthStateChanged(auth, user => {
-                if (user) {
-                    currentUserId = user.uid;
-                    const userIdEl = document.getElementById('userId');
-                    const copyFeedbackEl = document.getElementById('copyFeedback');
+        function renderUserInfo() {
+            const adminLoginIconContainer = document.getElementById('adminLoginIconContainer');
+            if (isAdmin) {
+                userInfoContainer.innerHTML = `
+                    <div class="p-3 bg-blue-100 border border-blue-200 rounded-lg text-center col-span-2">
+                        <p class="text-sm text-blue-800">管理者模式：<strong>${currentUserName}</strong></p>
+                    </div>`;
+                adminLoginIconContainer.classList.add('hidden');
+            } else {
+                userInfoContainer.innerHTML = `
+                    <div class="p-3 bg-indigo-100 border border-indigo-200 rounded-lg text-center">
+                        <p class="text-sm text-indigo-800">您的專屬 ID: 
+                            <strong id="userId" class="font-mono cursor-pointer" title="點擊以複製完整 ID"></strong>
+                            <span id="copyFeedback" class="text-xs text-green-600 font-bold ml-2 opacity-0 transition-opacity duration-300">已複製！</span>
+                        </p>
+                    </div>
+                    <div class="p-3 bg-orange-100 border border-orange-200 rounded-lg flex items-center gap-2">
+                        <label for="userNameInput" class="text-sm font-medium text-orange-800 whitespace-nowrap">您的姓名:</label>
+                        <input type="text" id="userNameInput" class="w-full px-2 py-1 text-sm border-orange-300 rounded-md" placeholder="請輸入姓名以利報名">
+                        <button id="saveNameBtn" class="px-3 py-1 bg-orange-500 text-white text-sm rounded-md hover:bg-orange-600">儲存</button>
+                    </div>`;
+                adminLoginIconContainer.classList.remove('hidden');
+                document.getElementById('userNameInput').value = currentUserName;
+                document.getElementById('saveNameBtn').addEventListener('click', saveUserName);
+                
+                const userIdEl = document.getElementById('userId');
+                if (currentUserId) {
                     userIdEl.textContent = `${currentUserId.substring(0, 8)}...`;
-                    
                     userIdEl.addEventListener('click', () => {
                         if (copyToClipboard(currentUserId)) {
-                            copyFeedbackEl.style.opacity = '1';
-                            setTimeout(() => { copyFeedbackEl.style.opacity = '0'; }, 2000);
+                            document.getElementById('copyFeedback').style.opacity = '1';
+                            setTimeout(() => { document.getElementById('copyFeedback').style.opacity = '0'; }, 2000);
                         } else {
                             alert("複製失敗，請手動複製。");
                         }
                     });
-
-                    const savedName = localStorage.getItem('jpsUserName');
-                    if (savedName) {
-                        currentUserName = savedName;
-                        document.getElementById('userNameInput').value = savedName;
-                    }
-                    
-                    initializeSchedule();
-                    
-                    if (currentUserId === ADMIN_USER_ID) {
-                        document.getElementById('adminPanel').classList.remove('hidden');
-                        initializeAdminView();
-                    }
-                } 
-            });
-
-            (async () => {
-                try {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else { await signInAnonymously(auth); }
-                } catch (error) { console.error("Authentication failed:", error); displayError(`登入失敗: ${error.message}`); }
-            })();
+                }
+            }
         }
 
-        document.getElementById('saveNameBtn').addEventListener('click', () => {
+        function saveUserName() {
             const nameToSave = document.getElementById('userNameInput').value.trim();
             if (nameToSave) {
                 currentUserName = nameToSave;
                 localStorage.setItem('jpsUserName', nameToSave);
                 alert('姓名已儲存！');
-            } else { alert('請輸入有效的姓名。'); }
+            } else {
+                alert('請輸入有效的姓名。');
+            }
+        }
+        
+        document.getElementById('adminLoginIcon').addEventListener('click', () => {
+            adminLoginModalEl.innerHTML = `
+                <div class="modal-content bg-white rounded-xl shadow-lg w-11/12 max-w-sm m-4 p-6">
+                    <h3 class="text-xl font-bold text-center mb-4">管理者登入</h3>
+                    <form id="adminLoginForm">
+                        <div class="mb-4">
+                            <label for="adminEmail" class="block text-sm font-medium text-gray-700">電子郵件</label>
+                            <input type="email" id="adminEmail" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <div class="mb-6">
+                            <label for="adminPassword" class="block text-sm font-medium text-gray-700">密碼</label>
+                            <input type="password" id="adminPassword" required class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500">
+                        </div>
+                        <p id="loginError" class="text-red-500 text-sm text-center mb-4 hidden"></p>
+                        <div class="flex justify-end gap-4">
+                            <button type="button" class="close-modal-btn px-4 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">取消</button>
+                            <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">登入</button>
+                        </div>
+                    </form>
+                </div>`;
+            
+            adminLoginModalEl.querySelector('.close-modal-btn').addEventListener('click', () => closeModal(adminLoginModalEl));
+            adminLoginModalEl.querySelector('#adminLoginForm').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const email = adminLoginModalEl.querySelector('#adminEmail').value;
+                const password = adminLoginModalEl.querySelector('#adminPassword').value;
+                const errorEl = adminLoginModalEl.querySelector('#loginError');
+                errorEl.classList.add('hidden');
+
+                signInWithEmailAndPassword(auth, email, password)
+                    .then(() => closeModal(adminLoginModalEl))
+                    .catch((error) => {
+                        errorEl.textContent = "登入失敗，請檢查帳號或密碼。";
+                        errorEl.classList.remove('hidden');
+                        console.error("Admin login failed:", error);
+                    });
+            });
+            openModal(adminLoginModalEl);
         });
 
-        function getWeekInfo(refDate) {
-            const date = new Date(refDate);
-            const day = date.getDay();
-            const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-            const monday = new Date(date.setDate(diff));
-            const weekDates = Array.from({length: 6}, (_, i) => {
-                const weekDay = new Date(monday);
-                weekDay.setDate(monday.getDate() + i);
-                return weekDay;
-            });
-            const saturday = weekDates[5];
-            const rangeStr = `${monday.getMonth() + 1}/${monday.getDate()} - ${saturday.getMonth() + 1}/${saturday.getDate()}`;
-            return { weekDates, rangeStr };
+        document.getElementById('adminLogoutBtn').addEventListener('click', () => {
+            signOut(auth).catch(error => console.error("Sign out failed:", error));
+        });
+
+        function openModal(modal) {
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            modal.querySelector('.modal-content')?.classList.remove('-translate-y-10');
         }
 
-        function getClassDateTime(date, time) {
-            const [startTime] = time.split('-');
-            const [hours, minutes] = startTime.split(':');
-            const classDateTime = new Date(date);
-            classDateTime.setHours(hours, minutes, 0, 0);
-            return classDateTime;
+        function closeModal(modal) {
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            modal.querySelector('.modal-content')?.classList.add('-translate-y-10');
         }
+        
+        function copyToClipboard(text) {
+             const textArea = document.createElement("textarea");
+            textArea.value = text;
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try { return document.execCommand('copy'); } 
+            catch (err) { return false; } 
+            finally { document.body.removeChild(textArea); }
+        }
+        
+        const scheduleContainer = document.getElementById('scheduleContainer');
+        const prevWeekBtn = document.getElementById('prevWeekBtn');
+        const nextWeekBtn = document.getElementById('nextWeekBtn');
+        const todayBtn = document.getElementById('todayBtn');
 
+        function displayPermissionsError() {
+            const appContainer = document.getElementById('app');
+            appContainer.innerHTML = `
+                <div class="p-4 md:p-8 max-w-4xl mx-auto bg-red-100 border-l-4 border-red-500 text-red-700">
+                    <h2 class="font-bold text-2xl mb-4">Firebase 權限錯誤 (Permission Denied)</h2>
+                    <p class="mb-2">系統偵測到無法讀取資料庫，這通常是因為 Firestore 的「安全性規則」尚未設定。</p>
+                    <p class="mb-4">為了讓預約系統正常運作，請依照以下步驟更新您的 Firebase 安全規則：</p>
+                    <ol class="list-decimal list-inside space-y-2 mb-4">
+                        <li>前往您的 <a href="https://console.firebase.google.com/" target="_blank" class="underline font-bold">Firebase 控制台</a>。</li>
+                        <li>選擇您的專案，然後點擊左側選單的 <strong>Firestore Database</strong>。</li>
+                        <li>點擊上方的 <strong>規則 (Rules)</strong> 頁籤。</li>
+                        <li>將編輯器中所有的內容，替換為下方的程式碼，然後點擊 <strong>發布 (Publish)</strong>。</li>
+                    </ol>
+                    <pre class="bg-gray-800 text-white p-4 rounded-md overflow-x-auto"><code>rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /artifacts/{appId}/public/data/{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}</code></pre>
+                    <p class="mt-4">發布新的規則後，請重新整理此頁面。</p>
+                </div>
+            `;
+        }
+        
         async function initializeSchedule() {
-            if (!currentUserId || !db) return;
-
+            if (!currentUserId) return;
             const { weekDates, rangeStr } = getWeekInfo(currentDate);
             document.getElementById('weekRangeDisplay').textContent = rangeStr;
+
+            const startDate = weekDates[0].toISOString().slice(0, 10);
+            const endDate = weekDates[5].toISOString().slice(0, 10);
+            const overrides = {};
+            try {
+                const overridesQuery = query(collection(db, `/artifacts/${appId}/public/data/schedule_overrides`), where('date', '>=', startDate), where('date', '<=', endDate));
+                const querySnapshot = await getDocs(overridesQuery);
+                querySnapshot.forEach(doc => {
+                    overrides[doc.data().date] = doc.data();
+                });
+            } catch (error) {
+                console.error("Could not fetch schedule overrides.", error);
+                if (error.code === 'permission-denied') {
+                    displayPermissionsError();
+                    return; 
+                }
+            }
+            
             scheduleContainer.innerHTML = '';
             const scheduleFragment = document.createDocumentFragment();
             
             const headerFrag = document.createDocumentFragment();
             headerFrag.appendChild(document.createElement('div'));
             weekdays.forEach((day, index) => {
+                const date = weekDates[index];
+                const dateString = date.toISOString().slice(0, 10);
                 const dayHeader = document.createElement('div');
-                dayHeader.className = "font-bold p-2 rounded-t-lg bg-gray-100";
-                dayHeader.innerHTML = `${day}<br><span class="text-xs font-normal">${weekDates[index].getMonth()+1}/${weekDates[index].getDate()}</span>`;
+                dayHeader.className = "font-bold p-2 rounded-t-lg bg-gray-100 flex flex-col items-center";
+                let adminBtn = '';
+                if(isAdmin){
+                    adminBtn = `<button data-date="${dateString}" data-day-name="${day}" class="edit-day-btn text-xs mt-1 p-1 bg-gray-200 rounded">⚙️ 設定</button>`;
+                }
+                dayHeader.innerHTML = `<span>${day}</span><span class="text-xs font-normal">${date.getMonth()+1}/${date.getDate()}</span>${adminBtn}`;
                 headerFrag.appendChild(dayHeader);
             });
             scheduleFragment.appendChild(headerFrag);
@@ -337,54 +392,76 @@
                 scheduleFragment.appendChild(timeLabel);
 
                 weekDates.forEach((date, dayIndex) => {
+                    const dateString = date.toISOString().slice(0, 10);
                     const dayName = weekdays[dayIndex];
-                    const courseName = schedule[dayName]?.[time];
                     const cell = document.createElement('div');
                     cell.className = 'p-1 min-h-[110px]';
-                    if (courseName) {
-                        const classDateTime = getClassDateTime(date, time);
-                        const isExpired = new Date() > classDateTime;
-                        const courseId = `${classDateTime.toISOString().slice(0, 10)}-${time}`;
-                        
-                        cell.innerHTML = `
-                            <div id="${courseId}" class="course-card h-full p-2 rounded-lg flex flex-col justify-between border text-left ${isExpired ? 'status-expired' : 'cursor-pointer transition-all duration-200 hover:shadow-md hover:-translate-y-1'}">
-                                <div>
-                                    <p class="font-bold text-center">${courseName}</p>
-                                    <div class="attendee-info mt-1 text-xs text-gray-700 overflow-hidden h-10"></div>
-                                </div>
-                                <div class="mt-auto pt-1">
-                                    <div class="w-full progress-bar-bg rounded-full h-1.5">
-                                        <div class="progress-bar bg-gray-400 h-1.5 rounded-full"></div>
+
+                    const overrideData = overrides[dateString];
+                    if (overrideData?.status === 'rest_day') {
+                        cell.innerHTML = `<div class="h-full p-2 rounded-lg flex flex-col justify-center items-center text-left status-expired"><p class="font-bold">本日公休</p></div>`;
+                    } else if (overrideData?.cancelledClasses?.includes(time)) {
+                        cell.innerHTML = `<div class="h-full p-2 rounded-lg flex flex-col justify-center items-center text-left status-expired"><p class="font-bold">本日停課</p></div>`;
+                    }
+                    else {
+                        let courseName = schedule[dayName]?.[time];
+                        if(overrideData?.classChanges?.[time]) {
+                            courseName = overrideData.classChanges[time];
+                        }
+
+                        if (courseName) {
+                            const classDateTime = getClassDateTime(date, time);
+                            const courseId = `${dateString}-${time}`;
+                            
+                            cell.innerHTML = `
+                                <div id="${courseId}" class="course-card h-full p-2 rounded-lg flex flex-col justify-between border text-left">
+                                    <div>
+                                        <p class="font-bold text-center">${courseName}</p>
+                                        <div class="attendee-info mt-1 text-xs text-gray-700 overflow-hidden h-10"></div>
                                     </div>
-                                    <p class="text-xs text-right mt-1 text-gray-500">0/6</p>
-                                </div>
-                            </div>`;
-                        
-                        const cardElement = cell.firstElementChild;
-                        if (!isExpired) {
-                            onSnapshot(doc(db, `/artifacts/${appId}/public/data/courses`, courseId), (docSnap) => {
-                                if (!docSnap.exists()) {
-                                    setDoc(docSnap.ref, { attendees: [], courseName, day: dayName, time });
-                                } else {
-                                    updateCardUI(courseId, docSnap.data(), classDateTime);
-                                }
-                            });
-                            cardElement.addEventListener('click', () => openBookingModal(courseId, classDateTime));
-                        } else {
-                            updateCardUI(courseId, null, classDateTime);
+                                    <div class="mt-auto pt-1">
+                                        <div class="w-full progress-bar-bg rounded-full h-1.5"><div class="progress-bar bg-gray-400 h-1.5 rounded-full"></div></div>
+                                        <p class="text-xs text-right mt-1 text-gray-500">0/6</p>
+                                    </div>
+                                </div>`;
+                            
+                            const cardElement = cell.firstElementChild;
+                            const isExpired = new Date() > classDateTime;
+                            if (!isExpired) {
+                                cardElement.classList.add('cursor-pointer', 'transition-all', 'duration-200', 'hover:shadow-md', 'hover:-translate-y-1');
+                                onSnapshot(doc(db, `/artifacts/${appId}/public/data/courses`, courseId), (docSnap) => {
+                                    updateCardUI(courseId, docSnap.exists() ? docSnap.data() : { attendees: [], courseName }, classDateTime);
+                                }, (error) => {
+                                    console.error(`Snapshot listener for ${courseId} failed:`, error);
+                                    if (error.code === 'permission-denied' && !document.querySelector('.bg-red-100')) {
+                                        displayPermissionsError();
+                                    }
+                                });
+                                cardElement.addEventListener('click', () => openBookingModal(courseId, classDateTime));
+                            } else {
+                                updateCardUI(courseId, { attendees: [], courseName }, classDateTime);
+                            }
                         }
                     }
                     scheduleFragment.appendChild(cell);
                 });
             });
             scheduleContainer.appendChild(scheduleFragment);
+            
+            scheduleContainer.querySelectorAll('.edit-day-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const date = e.currentTarget.dataset.date;
+                    const dayName = e.currentTarget.dataset.dayName;
+                    openEditDayModal(date, dayName, overrides[date]);
+                });
+            });
         }
 
         function updateCardUI(courseId, data, classDateTime) {
             const card = document.getElementById(courseId);
             if (!card) return;
-            const isExpired = new Date() > classDateTime;
 
+            const isExpired = new Date() > classDateTime;
             if (isExpired) {
                 card.className = 'course-card h-full p-2 rounded-lg flex flex-col justify-between border text-left status-expired';
                 card.querySelector('.font-bold').classList.add('text-gray-500');
@@ -399,148 +476,352 @@
             card.querySelector('.progress-bar').style.width = `${(currentCount / 6) * 100}%`;
             card.querySelector('.mt-auto p').textContent = `${currentCount}/6`;
             
-            const attendeeInfo = card.querySelector('.attendee-info');
-            attendeeInfo.innerHTML = attendees.length > 0
-                ? `<span class="font-bold">已報名:</span> ${attendees.map(a => `${a.name}(${a.count}人)`).join(', ')}`
-                : '';
+            card.querySelector('.attendee-info').innerHTML = attendees.length > 0 ? `<span class="font-bold">已報名:</span> ${attendees.map(a => `${a.name}(${a.count}人)`).join(', ')}` : '';
 
             const courseNameP = card.querySelector('div > p.font-bold');
-            if (courseNameP) courseNameP.className = `font-bold text-center ${detail.textColor}`;
-            card.className = card.className.replace(/border-\w+-\d+/, detail.borderColor);
+            if(courseNameP && detail) {
+                 courseNameP.className = `font-bold text-center ${detail.textColor || 'text-gray-800'}`;
+                 card.className = card.className.replace(/border-[\w-]+/, detail.borderColor || 'border-gray-300');
+            }
+             if (courseNameP) courseNameP.textContent = courseName;
+
 
             ['status-pending', 'status-confirmed', 'status-full'].forEach(c => card.classList.remove(c));
             ['bg-yellow-400', 'bg-green-500', 'bg-red-500'].forEach(c => card.querySelector('.progress-bar').classList.remove(c));
 
-            if (currentCount >= 6) {
-                card.classList.add('status-full');
-                card.querySelector('.progress-bar').classList.add('bg-red-500');
-            } else if (currentCount >= detail.min) {
-                card.classList.add('status-confirmed');
-                card.querySelector('.progress-bar').classList.add('bg-green-500');
-            } else {
-                card.classList.add('status-pending');
-                card.querySelector('.progress-bar').classList.add('bg-yellow-400');
-            }
+            if (currentCount >= 6) { card.classList.add('status-full'); card.querySelector('.progress-bar').classList.add('bg-red-500'); }
+            else if (detail && currentCount >= detail.min) { card.classList.add('status-confirmed'); card.querySelector('.progress-bar').classList.add('bg-green-500'); }
+            else { card.classList.add('status-pending'); card.querySelector('.progress-bar').classList.add('bg-yellow-400'); }
         }
-        
-        prevWeekBtn.addEventListener('click', () => { currentDate.setDate(currentDate.getDate() - 7); initializeSchedule(); });
-        nextWeekBtn.addEventListener('click', () => { currentDate.setDate(currentDate.getDate() + 7); initializeSchedule(); });
-        todayBtn.addEventListener('click', () => { currentDate = new Date(); initializeSchedule(); });
+
+        [prevWeekBtn, nextWeekBtn, todayBtn].forEach(btn => btn.addEventListener('click', (e) => {
+            if(e.currentTarget.id === 'prevWeekBtn') currentDate.setDate(currentDate.getDate() - 7);
+            else if(e.currentTarget.id === 'nextWeekBtn') currentDate.setDate(currentDate.getDate() + 7);
+            else currentDate = new Date();
+            initializeSchedule();
+        }));
 
         async function openBookingModal(courseId, classDateTime) {
-            const docSnap = await getDoc(doc(db, `/artifacts/${appId}/public/data/courses`, courseId));
-            if (!docSnap.exists()) return;
+             const docRef = doc(db, `/artifacts/${appId}/public/data/courses`, courseId);
+            let docSnap = await getDoc(docRef);
+            
+            const dateString = courseId.substring(0, 10);
+            const time = courseId.substring(11);
+            const dayIndex = new Date(dateString).getDay() - 1;
+            const dayName = weekdays[dayIndex >= 0 ? dayIndex : 6];
+            
+            const overrideDoc = await getDoc(doc(db, `/artifacts/${appId}/public/data/schedule_overrides`, dateString));
+            const overrideData = overrideDoc.exists() ? overrideDoc.data() : null;
+            let finalCourseName = overrideData?.classChanges?.[time] || schedule[dayName]?.[time];
 
+            if (!docSnap.exists()) {
+                if(finalCourseName) {
+                    await setDoc(docRef, { attendees: [], courseName: finalCourseName, day: dayName, time });
+                    docSnap = await getDoc(docRef);
+                } else {
+                    console.error("Course not found in schedule for", dayName, time);
+                    return;
+                }
+            }
             const data = docSnap.data();
-            const { attendees = [], courseName, day, time } = data;
+            
+            const { attendees = [] } = data;
+            const courseName = finalCourseName;
             const detail = courseDetails[courseName];
             const currentCount = attendees.reduce((sum, att) => sum + (att.count || 1), 0);
-            const isBooked = attendees.some(att => att.userId === currentUserId);
+            const myBooking = attendees.find(att => att.userId === currentUserId);
+            const bookingClosed = (classDateTime.getTime() - Date.now()) < (2 * 60 * 60 * 1000);
             
-            const bookingClosed = (classDateTime.getTime() - new Date().getTime()) < (2 * 60 * 60 * 1000);
+            if (isAdmin) {
+                 bookingModalEl.innerHTML = `
+                 <div class="modal-content transform -translate-y-10 bg-white rounded-2xl shadow-xl w-11/12 max-w-md m-4">
+                    <div class="p-5 border-b rounded-t-2xl"><h3 class="text-2xl font-bold">${courseName}</h3><p class="text-gray-500">${classDateTime.toLocaleDateString()} ${dayName} ${time}</p></div>
+                    <div class="p-6 space-y-4">
+                        <div>
+                            <p class="font-bold text-lg">預約狀態: ${currentCount}/6 人</p>
+                            <div class="w-full progress-bar-bg rounded-full h-2.5 mt-1"><div id="modalProgressBar" class="h-2.5 rounded-full" style="width: ${(currentCount/6)*100}%"></div></div>
+                        </div>
+                        <div class="pt-4 border-t mt-4">
+                             <h4 class="font-bold text-base mb-2">已報名學員</h4>
+                             <ul id="admin-attendee-list" class="text-sm space-y-2">${attendees.length > 0 ? attendees.map(a => `<li class="flex justify-between items-center"><span>${a.name}(${a.count}人)</span><button data-user-id="${a.userId}" class="admin-cancel-in-modal text-xs bg-red-100 text-red-700 px-2 py-1 rounded">取消</button></li>`).join('') : '<p class="text-gray-500">尚無人報名</p>'}</ul>
+                        </div>
+                        <div class="pt-4 border-t mt-4">
+                            <h4 class="font-bold text-lg mb-2">管理者代為報名</h4>
+                            <div class="mb-2">
+                                <label for="adminStudentName" class="block text-sm font-medium text-gray-700">學員姓名</label>
+                                <input type="text" id="adminStudentName" placeholder="請輸入學員姓名" class="w-full p-2 border border-gray-300 rounded-md mt-1">
+                            </div>
+                            <div>
+                                <label for="adminBookingCount" class="block text-sm font-medium text-gray-700">報名人數</label>
+                                <input type="number" id="adminBookingCount" value="1" min="1" max="${6-currentCount}" class="w-full p-2 border border-gray-300 rounded-md mt-1">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex items-center justify-end p-5 border-t space-x-2 rounded-b-2xl bg-gray-50">
+                        <button class="close-modal-btn px-4 py-2 bg-gray-200 text-gray-800 rounded-lg">關閉</button>
+                        <button id="adminAddBookingBtn" class="px-4 py-2 bg-blue-600 text-white rounded-lg ${currentCount >= 6 ? 'hidden' : ''}">新增預約</button>
+                    </div>
+                </div>`;
+            } else { // User Modal
+                 bookingModalEl.innerHTML = `
+                 <div class="modal-content transform -translate-y-10 bg-white rounded-2xl shadow-xl w-11/12 max-w-md m-4">
+                    <div class="p-5 border-b rounded-t-2xl"><h3 class="text-2xl font-bold">${courseName}</h3><p class="text-gray-500">${classDateTime.toLocaleDateString()} ${dayName} ${time}</p></div>
+                     <div class="p-6 space-y-4">
+                         <div><p class="font-bold text-lg">預約狀態: ${currentCount}/6 人</p><div class="w-full progress-bar-bg rounded-full h-2.5 mt-1"><div id="modalProgressBar" class="h-2.5 rounded-full" style="width: ${(currentCount/6)*100}%"></div></div></div>
+                         <div class="${attendees.length > 0 ? '' : 'hidden'}"><p class="font-bold text-sm mb-1">已報名學員：</p><div class="text-sm text-gray-600 max-h-20 overflow-y-auto bg-gray-50 p-2 rounded-md">${attendees.map(a => `${a.name}(${a.count}人)`).join(', ')}</div></div>
+                        <div class="pt-2 ${myBooking || currentCount >= 6 ? 'hidden' : ''}">
+                            <label for="bookingCount" class="block text-sm font-medium text-gray-700 mb-1">報名人數</label>
+                            <input type="number" id="bookingCount" value="1" min="1" max="${6-currentCount}" class="w-full p-2 border border-gray-300 rounded-md text-center">
+                        </div>
+                        <p class="text-sm text-red-600 bg-red-100 p-2 rounded-md">${detail?.min || 1} 人以上即可開班，6 人額滿。</p>
+                        <p class="text-sm text-blue-600 bg-blue-100 p-2 rounded-md ${myBooking ? '' : 'hidden'}">您已用「${myBooking?.name}」預約了 ${myBooking?.count} 位。</p>
+                        <p class="text-sm text-center font-bold text-red-700 bg-red-100 p-2 rounded-md ${bookingClosed ? '' : 'hidden'}">已截止預約/取消 (開課前 2 小時)</p>
+                    </div>
+                    <div class="flex items-center justify-end p-5 border-t space-x-2 rounded-b-2xl bg-gray-50">
+                        <button class="close-modal-btn px-4 py-2 bg-gray-200 text-gray-800 rounded-lg">關閉</button>
+                        <button id="cancelBookingBtn" class="px-4 py-2 bg-red-500 text-white rounded-lg ${!myBooking || bookingClosed ? 'hidden' : ''}">取消我的預約</button>
+                        <button id="addBookingBtn" class="px-4 py-2 bg-orange-500 text-white rounded-lg ${myBooking || currentCount >= 6 || bookingClosed ? 'hidden' : ''}">立即預約</button>
+                    </div>
+                </div>`;
+            }
 
-            document.getElementById('modalCourseName').textContent = courseName;
-            document.getElementById('modalCourseTime').textContent = `${classDateTime.toLocaleDateString()} ${day} ${time}`;
-            document.getElementById('modalHeader').className = `p-5 border-b rounded-t-2xl ${detail.color}`;
-            document.getElementById('modalSpots').textContent = `${currentCount}/6 人`;
+            const progressBar = bookingModalEl.querySelector('#modalProgressBar');
+            if (currentCount >= 6) { progressBar.classList.add('bg-red-500'); }
+            else if (detail && currentCount >= detail.min) { progressBar.classList.add('bg-green-500'); }
+            else { progressBar.classList.add('bg-yellow-400'); }
             
-            const bookingCountInput = document.getElementById('bookingCount');
-            bookingCountInput.value = 1;
-            bookingCountInput.max = 6 - currentCount > 0 ? 6 - currentCount : 1;
-
-            const attendeesListContainer = document.getElementById('attendeesListContainer');
-            if (attendees.length > 0) {
-                document.getElementById('attendeesList').innerHTML = attendees.map(a => `${a.name}(${a.count}人)`).join(', ');
-                attendeesListContainer.classList.remove('hidden');
+            bookingModalEl.querySelector('.close-modal-btn').addEventListener('click', () => closeModal(bookingModalEl));
+            
+            if(isAdmin) {
+                const adminAddBtn = bookingModalEl.querySelector('#adminAddBookingBtn');
+                if (adminAddBtn) adminAddBtn.onclick = () => {
+                    const studentName = bookingModalEl.querySelector('#adminStudentName').value.trim();
+                    const studentCount = parseInt(bookingModalEl.querySelector('#adminBookingCount').value, 10);
+                     if (!studentName) { alert('請輸入學員姓名！'); return; }
+                    if (studentCount > 0 && (currentCount + studentCount) <= 6) {
+                        const newBookingData = { userId: 'admin_booked_' + crypto.randomUUID(), name: studentName, count: studentCount };
+                        showConfirmation(`確定要為 ${studentName} 預約 ${studentCount} 位「${courseName}」嗎？`, () => handleBooking(docRef, 'add', newBookingData));
+                    } else {
+                         alert(`報名人數錯誤或超過剩餘名額 (剩餘 ${6 - currentCount} 位)`);
+                    }
+                };
+                 bookingModalEl.querySelectorAll('.admin-cancel-in-modal').forEach(btn => {
+                    btn.onclick = () => {
+                        const userIdToCancel = btn.dataset.userId;
+                        const bookingToCancel = attendees.find(att => att.userId === userIdToCancel);
+                        if (bookingToCancel) {
+                           showConfirmation(`確定要為 ${bookingToCancel.name} 取消「${courseName}」嗎？`, () => handleBooking(docRef, 'remove', bookingToCancel));
+                        }
+                    };
+                });
             } else {
-                attendeesListContainer.classList.add('hidden');
+                const addBtn = bookingModalEl.querySelector('#addBookingBtn');
+                const cancelBtn = bookingModalEl.querySelector('#cancelBookingBtn');
+                if (addBtn) addBtn.onclick = () => {
+                    if (!currentUserName || !currentUserName.trim()) {
+                        alert('請先返回主畫面輸入並儲存您的姓名！');
+                        closeModal(bookingModalEl);
+                        return;
+                    }
+                    const count = parseInt(bookingModalEl.querySelector('#bookingCount').value, 10);
+                    if (count > 0 && (currentCount + count) <= 6) {
+                        showConfirmation(`確定要為 ${currentUserName} 預約 ${count} 位「${courseName}」嗎？`, () => handleBooking(docRef, 'add', { userId: currentUserId, name: currentUserName, count }));
+                    } else {
+                        alert(`報名人數錯誤或超過剩餘名額 (剩餘 ${6 - currentCount} 位)`);
+                    }
+                };
+                if (cancelBtn) cancelBtn.onclick = () => showConfirmation(`確定要取消 ${myBooking.name}(${myBooking.count}人) 的「${courseName}」預約嗎？`, () => handleBooking(docRef, 'remove', myBooking));
             }
             
-            const statusText = document.getElementById('modalStatus');
-            const progressBar = document.getElementById('modalProgressBar');
-            progressBar.style.width = `${(currentCount / 6) * 100}%`;
-            ['bg-yellow-400', 'bg-green-500', 'bg-red-500'].forEach(c => progressBar.classList.remove(c));
-            
-            if (currentCount >= 6) { statusText.textContent = '已額滿'; statusText.className = 'font-bold text-red-600'; progressBar.classList.add('bg-red-500'); }
-            else if (currentCount >= detail.min) { statusText.textContent = '確定開課'; statusText.className = 'font-bold text-green-600'; progressBar.classList.add('bg-green-500'); }
-            else { statusText.textContent = '招生中'; statusText.className = 'font-bold text-yellow-600'; progressBar.classList.add('bg-yellow-400'); }
-            
-            const addBtn = document.getElementById('addBookingBtn');
-            const cancelBtn = document.getElementById('cancelBookingBtn');
-            const bookingCountContainer = document.getElementById('bookingCountContainer');
-            
-            document.getElementById('modalUserInfo').classList.toggle('hidden', !isBooked);
-            addBtn.classList.toggle('hidden', isBooked || currentCount >= 6);
-            bookingCountContainer.classList.toggle('hidden', isBooked || currentCount >= 6);
-            cancelBtn.classList.toggle('hidden', !isBooked);
-
-            [addBtn, cancelBtn].forEach(btn => {
-                btn.disabled = bookingClosed;
-                btn.classList.toggle('bg-gray-400', bookingClosed);
-                btn.classList.toggle('cursor-not-allowed', bookingClosed);
-            });
-            document.getElementById('modalDeadlineInfo').classList.toggle('hidden', !bookingClosed);
-
-            addBtn.onclick = () => {
-                if (!currentUserName) { alert('請先輸入並儲存您的姓名！'); return; }
-                const count = parseInt(bookingCountInput.value, 10);
-                if (count > 0 && (currentCount + count) <= 6) {
-                    showConfirmation(`確定要為 ${count} 人預約「${courseName}」嗎？`, () => handleBooking(courseId, 'add', count));
-                } else {
-                    alert('報名人數超過剩餘名額！');
-                }
-            };
-            cancelBtn.onclick = () => showConfirmation(`確定要取消您的「${courseName}」預約嗎？`, () => handleBooking(courseId, 'remove'));
-            
-            bookingModal.classList.remove('opacity-0', 'pointer-events-none');
-            bookingModal.querySelector('.modal-content').classList.remove('-translate-y-10');
+            openModal(bookingModalEl);
         }
 
-        document.getElementById('closeModalBtn').addEventListener('click', () => closeModal(bookingModal));
+        async function openEditDayModal(dateString, dayName, currentOverride) {
+            const isRestDay = currentOverride?.status === 'rest_day';
+            const cancelledClasses = currentOverride?.cancelledClasses || [];
+            const classChanges = currentOverride?.classChanges || {};
+            
+            const daySchedule = schedule[dayName] || {};
+            const allCourseOptions = Object.keys(courseDetails).map(name => `<option value="${name}">${name}</option>`).join('');
 
-        function closeModal(modalElement) {
-            modalElement.classList.add('opacity-0', 'pointer-events-none');
-            modalElement.querySelector('.modal-content')?.classList.add('-translate-y-10');
+            const coursesHtml = Object.keys(daySchedule).sort().map(time => {
+                const defaultCourse = daySchedule[time];
+                const currentCourse = classChanges[time] || defaultCourse;
+                
+                const selectorId = `selector-${time.replace(':', '')}`;
+                
+                return `
+                <div class="grid grid-cols-3 gap-2 items-center py-2 border-b">
+                    <span class="text-xs col-span-1">${time}</span>
+                    <select id="${selectorId}" class="text-xs p-1 border rounded col-span-1" ${isRestDay ? 'disabled' : ''}>
+                        ${Object.keys(courseDetails).map(name => `<option value="${name}" ${name === currentCourse ? 'selected' : ''}>${name}</option>`).join('')}
+                    </select>
+                    <label class="text-xs flex items-center justify-end col-span-1">
+                        停課 <input type="checkbox" data-time="${time}" class="class-cancel-toggle ml-2" ${isRestDay ? 'disabled' : ''} ${cancelledClasses.includes(time) ? 'checked' : ''}>
+                    </label>
+                </div>`;
+            }).join('');
+
+            editDayModalEl.innerHTML = `
+                <div class="modal-content bg-white rounded-xl shadow-lg w-11/12 max-w-lg m-4 p-6">
+                    <h3 class="font-bold text-lg text-center">編輯課表狀態</h3>
+                    <p class="text-center text-gray-600 mb-4">${dateString}</p>
+                    <div class="space-y-4">
+                        <div class="flex items-center justify-between p-3 bg-gray-100 rounded-lg">
+                            <span class="font-medium">設為整日公休</span> 
+                            <input type="checkbox" id="restDayToggle" ${isRestDay ? 'checked' : ''}>
+                        </div>
+                        <div id="class-cancellation-list" class="space-y-2 ${isRestDay ? 'opacity-50 pointer-events-none' : ''}">
+                            <h4 class="font-medium mt-4 border-t pt-4">或編輯單堂課程：</h4>
+                            ${coursesHtml}
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-4 mt-6">
+                        <button class="close-modal-btn px-6 py-2 bg-gray-200 text-gray-800 rounded-lg">取消</button>
+                        <button id="saveDayBtn" class="px-6 py-2 bg-blue-600 text-white rounded-lg">儲存</button>
+                    </div>
+                </div>`;
+
+            const restDayToggle = editDayModalEl.querySelector('#restDayToggle');
+            const classManagementList = editDayModalEl.querySelector('#class-cancellation-list');
+
+            restDayToggle.onchange = () => {
+                const disable = restDayToggle.checked;
+                classManagementList.classList.toggle('opacity-50', disable);
+                classManagementList.classList.toggle('pointer-events-none', disable);
+                classManagementList.querySelectorAll('.class-cancel-toggle, select').forEach(el => {
+                    el.disabled = disable;
+                    if (disable && el.type === 'checkbox') el.checked = false;
+                });
+            };
+
+            editDayModalEl.querySelector('.close-modal-btn').onclick = () => closeModal(editDayModalEl);
+            editDayModalEl.querySelector('#saveDayBtn').onclick = async () => {
+                const docRef = doc(db, `/artifacts/${appId}/public/data/schedule_overrides`, dateString);
+                try {
+                    const isRest = restDayToggle.checked;
+                    if (isRest) {
+                        await setDoc(docRef, { date: dateString, status: 'rest_day' });
+                    } else {
+                        const newCancelledClasses = Array.from(classManagementList.querySelectorAll('.class-cancel-toggle:checked')).map(t => t.dataset.time);
+                        const newClassChanges = {};
+                        Object.keys(daySchedule).forEach(time => {
+                            const selector = classManagementList.querySelector(`#selector-${time.replace(':', '')}`);
+                            if (selector.value !== daySchedule[time]) {
+                                newClassChanges[time] = selector.value;
+                            }
+                        });
+
+                        const hasChanges = newCancelledClasses.length > 0 || Object.keys(newClassChanges).length > 0;
+                        if (hasChanges) {
+                             await setDoc(docRef, { date: dateString, status: 'custom', cancelledClasses: newCancelledClasses, classChanges: newClassChanges });
+                        } else {
+                           if(currentOverride) await deleteDoc(docRef);
+                        }
+                    }
+                    closeModal(editDayModalEl);
+                    initializeSchedule();
+                } catch (error) {
+                    console.error("Failed to update day status:", error);
+                    alert("更新失敗，請稍後再試。");
+                }
+            };
+            openModal(editDayModalEl);
         }
 
         function showConfirmation(message, onConfirm) {
-            const msgEl = document.getElementById('confirmMessage');
-            const yesBtn = document.getElementById('confirmYesBtn');
-            const noBtn = document.getElementById('confirmNoBtn');
-            msgEl.textContent = message;
-            
-            const confirmHandler = () => { onConfirm(); closeModal(confirmModal); };
-            const cancelHandler = () => closeModal(confirmModal);
-
-            yesBtn.onclick = confirmHandler;
-            noBtn.onclick = cancelHandler;
-            
-            confirmModal.classList.remove('opacity-0', 'pointer-events-none');
+             confirmModalEl.innerHTML = `
+                <div class="modal-content bg-white rounded-xl shadow-lg w-11/12 max-w-sm m-4 p-6 text-center">
+                    <p class="text-lg mb-6">${message}</p>
+                    <div class="flex justify-center gap-4">
+                        <button class="close-modal-btn px-6 py-2 bg-gray-200 text-gray-800 rounded-lg">取消</button>
+                        <button id="confirmYesBtn" class="px-6 py-2 bg-green-500 text-white rounded-lg">確定</button>
+                    </div>
+                </div>`;
+            const yesBtn = confirmModalEl.querySelector('#confirmYesBtn');
+            confirmModalEl.querySelector('.close-modal-btn').onclick = () => closeModal(confirmModalEl);
+            const confirmHandler = () => { onConfirm(); closeModal(confirmModalEl); };
+            yesBtn.addEventListener('click', confirmHandler, { once: true });
+            openModal(confirmModalEl);
         }
 
-        async function handleBooking(courseId, action, count = 1) {
-            const courseDocRef = doc(db, `/artifacts/${appId}/public/data/courses`, courseId);
+        async function handleBooking(courseDocRef, action, bookingData) {
             try {
-                const docSnap = await getDoc(courseDocRef);
-                const attendees = docSnap.data().attendees || [];
-                let newAttendees;
-
-                if (action === 'add') {
-                    newAttendees = [...attendees, { userId: currentUserId, name: currentUserName, count }];
+                const operation = action === 'add' ? arrayUnion(bookingData) : arrayRemove(bookingData);
+                await updateDoc(courseDocRef, { attendees: operation });
+                closeModal(bookingModalEl);
+            } catch (error) {
+                if (action === 'add' && (error.code === 'not-found' || error.code === 'INVALID_ARGUMENT')) {
+                    const {courseName, day, time} = (await getDoc(courseDocRef)).data() || {};
+                    await setDoc(courseDocRef, { attendees: [bookingData], courseName, day, time });
+                     closeModal(bookingModalEl);
                 } else {
-                    newAttendees = attendees.filter(att => att.userId !== currentUserId);
+                    console.error("Booking failed: ", error); 
+                    alert("操作失敗，請稍後再試。");
                 }
-                
-                await setDoc(courseDocRef, { attendees: newAttendees }, { merge: true });
-                closeModal(bookingModal);
-            } catch (error) { console.error("Booking failed: ", error); alert("操作失敗，請稍後再試。"); }
+            }
         }
-        
-        function initializeAdminView() { console.log("Admin view loaded."); }
-        function displayError(message) { document.body.innerHTML = `<div class="p-8 text-center bg-red-100 text-red-800"><h1 class="font-bold text-2xl">應用程式錯誤</h1><p>${message}</p></div>`; }
+        function initializeAdminView() { 
+             const adminCourseList = document.getElementById('adminCourseList');
+             const coursesCol = collection(db, `/artifacts/${appId}/public/data/courses`);
+             onSnapshot(coursesCol, (snapshot) => {
+                 adminCourseList.innerHTML = '';
+                 const courses = [];
+                 snapshot.forEach(doc => {
+                     const classDate = new Date(doc.id.split('-')[0], doc.id.split('-')[1]-1, doc.id.split('-')[2]);
+                     if(classDate >= new Date().setHours(0,0,0,0) && doc.data().attendees.length > 0) {
+                         courses.push({ id: doc.id, ...doc.data() });
+                     }
+                 });
+                 courses.sort((a,b) => a.id.localeCompare(b.id));
+                 if (courses.length === 0) {
+                    adminCourseList.innerHTML = '<p class="text-gray-500 col-span-full text-center">目前沒有任何即將開始的課程預約。</p>';
+                    return;
+                }
+                 courses.forEach(course => {
+                     const card = document.createElement('div');
+                     card.className = 'bg-gray-50 p-4 rounded-lg shadow';
+                     card.innerHTML = `
+                         <h3 class="font-bold text-lg">${course.courseName}</h3>
+                         <p class="text-sm text-gray-500 mb-2">${course.id}</p>
+                         <ul class="text-sm">${course.attendees.map(att => `<li class="flex justify-between items-center py-1 border-b"><span>${att.name} (${att.count}人)</span><button data-course-id="${course.id}" data-user-id="${att.userId}" class="admin-cancel-btn text-xs bg-red-500 text-white px-2 py-1 rounded">取消</button></li>`).join('')}</ul>`;
+                     adminCourseList.appendChild(card);
+                 });
+             });
+             adminCourseList.addEventListener('click', async (e) => {
+                if (e.target.classList.contains('admin-cancel-btn')) {
+                    const button = e.target;
+                    const courseId = button.dataset.courseId;
+                    const userIdToCancel = button.dataset.userId;
+                    const courseDocRef = doc(db, `/artifacts/${appId}/public/data/courses`, courseId);
+                    const docSnap = await getDoc(courseDocRef);
+                    if (docSnap.exists()) {
+                        const bookingToCancel = docSnap.data().attendees.find(att => att.userId === userIdToCancel);
+                        if(bookingToCancel) {
+                           showConfirmation(`確定要為 ${bookingToCancel.name} 取消「${docSnap.data().courseName}」嗎？`, () => handleBooking(courseDocRef, 'remove', bookingToCancel));
+                        }
+                    }
+                }
+            });
+        }
+        function getWeekInfo(refDate) { 
+             const date = new Date(refDate);
+            const day = date.getDay();
+            const diff = date.getDate() - day + (day === 0 ? -6 : 1);
+            const monday = new Date(new Date(date).setDate(diff));
+            const weekDates = Array.from({length: 6}, (_, i) => new Date(new Date(monday).setDate(monday.getDate() + i)));
+            const saturday = weekDates[5];
+            const rangeStr = `${monday.getMonth() + 1}/${monday.getDate()} - ${saturday.getMonth() + 1}/${saturday.getDate()}`;
+            return { weekDates, rangeStr };
+         }
+        function getClassDateTime(date, time) { 
+             const [startTime] = time.split('-');
+            const [hours, minutes] = startTime.split(':');
+            const classDateTime = new Date(date);
+            classDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+            return classDateTime;
+         }
     </script>
 </body>
 </html>
-
-
 
