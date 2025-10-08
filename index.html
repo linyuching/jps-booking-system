@@ -72,7 +72,7 @@
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                 </button>
             </div>
-            <div id="scheduleContainer" class="space-y-1"></div>
+            <div id="scheduleContainer"></div>
         </div>
 
         <footer class="text-center mt-8 text-sm text-gray-500">
@@ -125,6 +125,7 @@
         let currentUserName = '';
         let currentDate = new Date();
         let isAdmin = false;
+        let unsubscribeListeners = []; // Array to hold all active onSnapshot listeners
 
         const weekdays = ["週一", "週二", "週三", "週四", "週五", "週六"];
         const courseDetails = {
@@ -150,6 +151,12 @@
         const bookingModalEl = document.getElementById('bookingModal');
         const confirmModalEl = document.getElementById('confirmModal');
         const editDayModalEl = document.getElementById('editDayModal');
+
+        // Function to unsubscribe from all active Firestore listeners
+        function clearFirestoreListeners() {
+            unsubscribeListeners.forEach(unsubscribe => unsubscribe());
+            unsubscribeListeners = [];
+        }
         
         function main() {
             if (!auth) {
@@ -277,9 +284,8 @@
         });
 
         document.getElementById('adminLogoutBtn')?.addEventListener('click', () => {
-            signOut(auth).then(() => {
-                // onAuthStateChanged will handle the UI update
-            }).catch(error => console.error("Sign out failed:", error));
+            signOut(auth).catch(error => console.error("Sign out failed:", error));
+            // onAuthStateChanged will automatically handle the UI update and anonymous sign-in
         });
 
         function openModal(modal) {
@@ -506,6 +512,7 @@ service cloud.firestore {
 
 
         async function initializeSchedule() {
+            clearFirestoreListeners(); // Clean up old listeners before creating new ones
             if (!currentUserId) return;
             const { weekDates, rangeStr } = getWeekInfo(currentDate);
             document.getElementById('weekRangeDisplay').textContent = rangeStr;
@@ -528,24 +535,36 @@ service cloud.firestore {
             }
             
             scheduleContainer.innerHTML = '';
-            const scheduleFragment = document.createDocumentFragment();
+            scheduleContainer.className = ""; // Reset class, table will handle layout.
+            const table = document.createElement('table');
+            table.className = "w-full min-w-[900px] border-collapse text-center";
+
+            // --- Table Head ---
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
             
-            const headerRow = document.createElement('div');
-            headerRow.className = 'grid grid-cols-[60px_repeat(6,1fr)] gap-4';
-            headerRow.appendChild(document.createElement('div')); // Empty corner
+            const cornerTh = document.createElement('th');
+            cornerTh.className = "w-[80px]"; // Fixed width for time column
+            headerRow.appendChild(cornerTh);
+
             weekdays.forEach((day, index) => {
                 const date = weekDates[index];
                 const dateString = date.toISOString().slice(0, 10);
-                const dayHeader = document.createElement('div');
-                dayHeader.className = "font-bold p-2 rounded-t-lg bg-gray-100 flex flex-col items-center";
+                const th = document.createElement('th');
+                th.className = "font-bold p-2 bg-gray-100 align-middle border border-gray-200";
+                
                 let adminBtn = '';
                 if(isAdmin){
-                    adminBtn = `<button data-date="${dateString}" data-day-name="${day}" class="edit-day-btn text-xs mt-1 p-1 bg-gray-200 rounded">⚙️ 設定</button>`;
+                    adminBtn = `<button data-date="${dateString}" data-day-name="${day}" class="edit-day-btn text-xs mt-1 p-1 bg-gray-200 rounded font-normal">⚙️ 設定</button>`;
                 }
-                dayHeader.innerHTML = `<span>${day}</span><span class="text-xs font-normal">${date.getMonth()+1}/${date.getDate()}</span>${adminBtn}`;
-                headerRow.appendChild(dayHeader);
+                th.innerHTML = `<div class="flex flex-col items-center"><span>${day}</span><span class="text-xs font-normal">${date.getMonth()+1}/${date.getDate()}</span>${adminBtn}</div>`;
+                headerRow.appendChild(th);
             });
-            scheduleFragment.appendChild(headerRow);
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            // --- Table Body ---
+            const tbody = document.createElement('tbody');
             
             const timeBlocks = {};
             Object.values(schedule).forEach(daySchedule => {
@@ -557,36 +576,38 @@ service cloud.firestore {
             });
 
             Object.keys(timeBlocks).sort().forEach((hour, hourIndex) => {
-                const row = document.createElement('div');
-                row.className = 'grid grid-cols-[60px_repeat(6,1fr)] gap-4';
+                const tr = document.createElement('tr');
                 
                 const prevHour = hourIndex > 0 ? Object.keys(timeBlocks).sort()[hourIndex - 1] : -1;
                 const isAfternoonStart = hour >= 12 && prevHour < 12;
                 const isEveningStart = hour >= 18 && prevHour < 18;
-                const separatorClass = (isAfternoonStart || isEveningStart) ? 'border-t-2 border-gray-300' : '';
+                if (isAfternoonStart || isEveningStart) {
+                    tr.classList.add('border-t-2', 'border-gray-300');
+                }
 
-                const timeLabel = document.createElement('div');
-                timeLabel.className = `font-bold text-gray-500 p-2 text-center flex items-center justify-center rounded-lg ${separatorClass}`;
-                timeLabel.textContent = `${hour}:00`;
-                row.appendChild(timeLabel);
+                const timeTh = document.createElement('th');
+                timeTh.scope = 'row';
+                timeTh.className = 'font-bold text-gray-500 p-2 align-middle border border-gray-200';
+                timeTh.textContent = `${hour}:00`;
+                tr.appendChild(timeTh);
 
                 weekDates.forEach((date, dayIndex) => {
                     const dateString = date.toISOString().slice(0, 10);
                     const dayName = weekdays[dayIndex];
-                    const cell = document.createElement('div');
-                    cell.className = `p-1 space-y-1 ${separatorClass}`;
+                    const td = document.createElement('td');
+                    td.className = 'p-1 align-top border border-gray-200 space-y-1';
                     
                     const overrideData = overrides[dateString];
 
                     if (overrideData?.status === 'rest_day') {
-                        cell.innerHTML = `<div class="h-full min-h-[120px] p-2 rounded-lg flex flex-col justify-center items-center text-left status-expired"><p class="font-bold">本日公休</p></div>`;
+                        td.innerHTML = `<div class="h-full min-h-[120px] p-2 rounded-lg flex flex-col justify-center items-center text-left status-expired"><p class="font-bold">本日公休</p></div>`;
                     } else {
                         timeBlocks[hour].forEach(time => {
                              if (overrideData?.cancelledClasses?.includes(time)) {
                                  const courseDiv = document.createElement('div');
                                  courseDiv.className = 'h-full min-h-[120px] p-2 rounded-lg flex flex-col justify-center items-center text-left status-expired';
                                  courseDiv.innerHTML = `<p class="font-bold">本日停課</p>`;
-                                 cell.appendChild(courseDiv);
+                                 td.appendChild(courseDiv);
                                  return;
                             }
 
@@ -619,11 +640,12 @@ service cloud.firestore {
                                 const isExpired = new Date() > classDateTime;
                                 if (!isExpired) {
                                     cardElement.classList.add('cursor-pointer', 'transition-all', 'duration-200', 'hover:shadow-md', 'hover:-translate-y-1');
-                                    onSnapshot(doc(db, `/artifacts/${appId}/public/data/courses`, courseId), (docSnap) => {
+                                    const unsubscribe = onSnapshot(doc(db, `/artifacts/${appId}/public/data/courses`, courseId), (docSnap) => {
                                         updateCardUI(courseId, docSnap.exists() ? docSnap.data() : { attendees: [], courseName }, classDateTime, overrideData);
                                     }, (error) => {
                                         if (error.code === 'permission-denied' && !document.querySelector('.bg-red-100')) displayPermissionsError();
                                     });
+                                    unsubscribeListeners.push(unsubscribe); // Store the unsubscribe function
                                     cardElement.addEventListener('click', () => openBookingModal(courseId, classDateTime));
                                 } else {
                                     // For expired classes, we can just fetch the data once instead of listening
@@ -631,20 +653,23 @@ service cloud.firestore {
                                        updateCardUI(courseId, docSnap.exists() ? docSnap.data() : { attendees: [], courseName }, classDateTime, overrideData);
                                     });
                                 }
-                                cell.appendChild(courseDiv);
+                                td.appendChild(courseDiv);
                             }
                         });
                     }
-                     row.appendChild(cell);
+                    tr.appendChild(td);
                 });
-                scheduleFragment.appendChild(row);
+                tbody.appendChild(tr);
             });
-            scheduleContainer.appendChild(scheduleFragment);
+            
+            table.appendChild(tbody);
+            scheduleContainer.appendChild(table);
             
             scheduleContainer.querySelectorAll('.edit-day-btn').forEach(btn => {
                 btn.addEventListener('click', (e) => {
-                    const date = e.currentTarget.dataset.date;
-                    const dayName = e.currentTarget.dataset.dayName;
+                    const button = e.target.closest('.edit-day-btn');
+                    const date = button.dataset.date;
+                    const dayName = button.dataset.dayName;
                     openEditDayModal(date, dayName, overrides[date]);
                 });
             });
@@ -652,7 +677,4 @@ service cloud.firestore {
     </script>
 </body>
 </html>
-
-
-
 
