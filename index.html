@@ -359,8 +359,7 @@
             const courseData = docSnap.exists() ? docSnap.data() : { attendees: [] };
             
             const bookingId = `${currentUserId}_${currentUserName}`;
-            const bookingObject = courseData.attendees?.find(p => p.id === bookingId);
-            const isBooked = !!bookingObject;
+            const isBooked = courseData.attendees?.some(p => p.id === bookingId);
             
             const now = new Date();
             const cancellationCutoffTime = new Date(classDateTime.getTime() - 60 * 60 * 1000);
@@ -419,8 +418,7 @@
                 bookingModalEl.querySelectorAll('.remove-attendee-btn').forEach(btn => {
                     btn.addEventListener('click', (e) => {
                         const attendeeIdToRemove = e.target.dataset.id;
-                        const attendeeToRemove = courseData.attendees.find(p => p.id === attendeeIdToRemove);
-                        handleBooking(courseId, true, finalCourseName, attendeeToRemove); // Admin removal signature
+                        handleBooking(courseId, true, finalCourseName, attendeeIdToRemove);
                     });
                 });
             }
@@ -428,51 +426,45 @@
             openModal(bookingModalEl);
         }
 
-        async function handleBooking(courseId, isBooked, courseName, adminAttendeeToRemove = null) {
+       async function handleBooking(courseId, isBooked, courseName, adminRemoveId = null) {
             const docRef = doc(db, `/artifacts/${appId}/public/data/courses`, courseId);
 
-            if (isBooked) { // CANCELLATION LOGIC
-                const objectToRemove = adminAttendeeToRemove || { id: `${currentUserId}_${currentUserName}`, name: currentUserName };
-                if (!objectToRemove.name) {
-                     alert("姓名無效，無法取消。");
-                     return;
-                }
-                try {
-                    // Re-fetch the document to get the exact object reference for arrayRemove
-                    const docSnap = await getDoc(docRef);
-                    if (docSnap.exists()) {
-                        const attendees = docSnap.data().attendees || [];
-                        const actualObjectToRemove = attendees.find(p => p.id === objectToRemove.id);
-                        if (actualObjectToRemove) {
-                            await updateDoc(docRef, { attendees: arrayRemove(actualObjectToRemove) });
-                        } else {
-                             console.error("Cancellation failed: Could not find the exact booking object to remove.");
-                             alert("取消失敗，找不到您的預約記錄。");
-                        }
+            try {
+                const docSnap = await getDoc(docRef);
+                const currentAttendees = docSnap.exists() ? docSnap.data().attendees || [] : [];
+                let newAttendees;
+
+                if (isBooked) { // CANCELLATION
+                    const idToRemove = adminRemoveId || `${currentUserId}_${currentUserName}`;
+                    newAttendees = currentAttendees.filter(p => p.id !== idToRemove);
+                    await updateDoc(docRef, { attendees: newAttendees });
+
+                } else { // BOOKING
+                    if (!currentUserName) {
+                        alert("請輸入有效的姓名並儲存。");
+                        return;
                     }
-                } catch(error) {
-                    console.error("Cancellation operation failed:", error);
-                    alert("取消操作失敗，請稍後再試。");
-                } finally {
-                    closeModal(bookingModalEl);
+                    const newUser = { id: `${currentUserId}_${currentUserName}`, name: currentUserName };
+                    
+                    // Check for duplicates before adding
+                    if (currentAttendees.some(p => p.id === newUser.id)) {
+                        console.log("User already booked.");
+                        return;
+                    }
+                    
+                    newAttendees = [...currentAttendees, newUser];
+
+                     if(docSnap.exists()){
+                        await updateDoc(docRef, { attendees: newAttendees });
+                    } else {
+                        await setDoc(docRef, { courseName: courseName, attendees: newAttendees });
+                    }
                 }
-            } else { // BOOKING LOGIC
-                if (!currentUserName) {
-                    alert("請輸入有效的姓名並儲存。");
-                    return;
-                }
-                const userToHandle = { id: `${currentUserId}_${currentUserName}`, name: currentUserName };
-                try {
-                    await setDoc(docRef, { 
-                        courseName: courseName, 
-                        attendees: arrayUnion(userToHandle) 
-                    }, { merge: true });
-                } catch (error) {
-                    console.error("Booking failed:", error);
-                    alert("預約失敗，請稍後再試。");
-                } finally {
-                    closeModal(bookingModalEl);
-                }
+            } catch (error) {
+                console.error("Booking operation failed:", error);
+                alert("操作失敗，請稍後再試。");
+            } finally {
+                closeModal(bookingModalEl);
             }
         }
         
@@ -590,7 +582,6 @@
                     }
                 });
 
-                // Clean up empty objects/arrays
                 if (Object.keys(newOverrideData.classChanges).length === 0) delete newOverrideData.classChanges;
                 if (Object.keys(newOverrideData.timeChanges).length === 0) delete newOverrideData.timeChanges;
                 if (newOverrideData.cancelledClasses.length === 0) delete newOverrideData.cancelledClasses;
@@ -628,7 +619,6 @@
 
 
         function initializeAdminView() {
-            // Placeholder for admin functionality
             console.log("Admin view initialized.");
             document.getElementById('adminCourseList').innerHTML = '<p>管理員後台功能正在開發中...</p>';
         }
@@ -652,7 +642,8 @@
             } catch (error) {
                 console.error("Could not fetch schedule overrides.", error);
                 if (error.code === 'permission-denied') {
-                    displayPermissionsError();
+                    const appContainer = document.getElementById('app');
+                    appContainer.innerHTML = `<div class="p-4 md:p-8 max-w-4xl mx-auto text-center text-red-600"><h2 class="font-bold text-2xl mb-4">無法載入課表</h2><p>讀取資料時發生錯誤，請聯繫系統管理員。</p></div>`;
                     return; 
                 }
             }
@@ -744,13 +735,13 @@
                                 const courseDiv = document.createElement('div');
                                 courseDiv.className = 'min-h-[120px]';
                                 courseDiv.innerHTML = `
-                                    <div id="${courseId}" class="course-card h-full p-2 rounded-lg flex flex-col justify-between border text-left">
-                                        <div>
+                                    <div id="${courseId}" class="course-card h-full p-2 rounded-lg flex flex-col border text-left">
+                                        <div class="flex-grow">
                                             <p class="font-bold text-center ${courseName === '燃脂跳床' ? 'text-red-500' : ''}">${courseName}</p>
                                             <p class="text-xs text-center text-gray-500">${finalTime}</p>
-                                            <div class="attendee-info mt-1 text-xs text-gray-700 overflow-hidden h-10"></div>
+                                            <div class="attendee-info mt-1 text-xs text-gray-700 overflow-y-auto h-10"></div>
                                         </div>
-                                        <div class="mt-auto pt-1">
+                                        <div class="pt-1">
                                             <div class="w-full progress-bar-bg rounded-full h-1.5"><div class="progress-bar bg-gray-400 h-1.5 rounded-full"></div></div>
                                             <p class="text-xs text-right mt-1 text-gray-500">0/6</p>
                                         </div>
@@ -771,7 +762,7 @@
                                         const combinedData = { attendees: dbData.attendees, courseName: finalCourseNameToPass };
                                         updateCardUI(courseId, combinedData, classDateTime);
                                     }, (error) => {
-                                        if (error.code === 'permission-denied' && !document.querySelector('.bg-red-100')) displayPermissionsError();
+                                        if (error.code === 'permission-denied' && !document.querySelector('.text-red-600')) displayPermissionsError();
                                     });
                                     unsubscribeListeners.push(unsubscribe);
                                 } else {
