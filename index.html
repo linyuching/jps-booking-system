@@ -28,11 +28,6 @@
         .status-confirmed { background-color: #dcfce7; border-left: 5px solid #4ade80; }
         .status-full { background-color: #fee2e2; border-left: 5px solid #f87171; }
         .status-expired { background-color: #f3f4f6; border-left: 5px solid #9ca3af; color: #6b7280; }
-        .schedule-grid {
-            display: grid;
-            grid-template-columns: 60px repeat(6, 1fr);
-            gap: 4px;
-        }
         .modal {
             transition: opacity 0.25s ease;
         }
@@ -142,12 +137,12 @@
         };
         
         const schedule = {
-            "週一": { "11:15-12:00": "入門階梯", "18:15-19:00": "壺鈴綜合訓練", "19:15-20:00": "入門跳床", "20:15-21:15": "懸吊TRX" },
-            "週二": { "10:00-10:45": "入門跳床", "14:00-14:45": "入門階梯", "18:15-19:00": "壺鈴綜合訓練", "19:15-20:00": "入門跳床" },
+            "週一": { "18:15-19:00": "壺鈴綜合訓練", "19:15-20:00": "入門跳床", "20:15-21:15": "懸吊TRX" },
+            "週二": { "10:00-10:45": "入門跳床", "11:15-12:00": "入門階梯", "14:00-14:45": "入門階梯", "19:15-20:00": "入門跳床", "20:15-21:00": "壺鈴綜合訓練" },
             "週三": { "10:00-10:45": "基礎肌力", "11:00-12:00": "懸吊TRX", "18:15-19:00": "基礎肌力", "19:15-20:00": "燃脂跳床" },
-            "週四": { "10:00-10:45": "基礎肌力", "11:15-12:00": "入門階梯", "14:00-15:00": "懸吊TRX", "20:15-21:00": "懸吊TRX" },
-            "週五": { "10:00-10:45": "入門跳床", "11:15-12:00": "壺鈴綜合訓練", "14:00-14:45": "基礎肌力", "18:15-19:00": "入門階梯", "19:15-20:00": "燃脂跳床", "20:15-21:15": "基礎肌力"},
-            "週六": { "10:00-10:45": "入門跳床", "11:15-12:00": "燃脂跳床", "19:15-20:00": "燃脂跳床" }
+            "週四": { "10:00-10:45": "基礎肌力", "11:15-12:00": "入門階梯", "14:00-15:00": "懸吊TRX", "18:15-19:00": "入門跳床", "19:15-20:00": "基礎肌力","20:15-21:15": "懸吊TRX" },
+            "週五": { "10:00-10:45": "入門跳床", "11:15-12:00": "壺鈴綜合訓練", "14:00-14:45": "基礎肌力", "18:15-19:00": "入門階梯", "19:15-20:00": "燃脂跳床", "20:15-21:00": "基礎肌力"},
+            "週六": { "10:00-10:45": "入門跳床", "11:15-12:00": "燃脂跳床"}
         };
         
         const userInfoContainer = document.getElementById('userInfoContainer');
@@ -384,7 +379,8 @@ service cloud.firestore {
             const scheduleFragment = document.createDocumentFragment();
             
             const headerRow = document.createElement('div');
-            headerRow.className = 'schedule-grid';
+            headerRow.className = 'grid grid-cols-[60px_repeat(6,1fr)] gap-4';
+            headerRow.appendChild(document.createElement('div')); // Empty corner
             weekdays.forEach((day, index) => {
                 const date = weekDates[index];
                 const dateString = date.toISOString().slice(0, 10);
@@ -398,74 +394,91 @@ service cloud.firestore {
                 headerRow.appendChild(dayHeader);
             });
             scheduleFragment.appendChild(headerRow);
+            
+            const timeBlocks = {};
+            Object.values(schedule).forEach(daySchedule => {
+                Object.keys(daySchedule).forEach(time => {
+                    const hour = time.split(':')[0];
+                    if(!timeBlocks[hour]) timeBlocks[hour] = [];
+                    if(!timeBlocks[hour].includes(time)) timeBlocks[hour].push(time);
+                });
+            });
 
-            const sortedTimeSlots = [...new Set(Object.values(schedule).flatMap(day => Object.keys(day)))].sort();
-
-            sortedTimeSlots.forEach((time, timeIndex) => {
+            Object.keys(timeBlocks).sort().forEach((hour, hourIndex) => {
                 const row = document.createElement('div');
-                row.className = 'schedule-grid';
-
-                const startHour = parseInt(time.split(':')[0]);
-                const prevTime = timeIndex > 0 ? sortedTimeSlots[timeIndex - 1] : null;
-                const prevStartHour = prevTime ? parseInt(prevTime.split(':')[0]) : -1;
-
-                const isAfternoonStart = startHour >= 12 && prevStartHour < 12;
-                const isEveningStart = startHour >= 18 && prevStartHour < 18;
-                const separatorClass = (isAfternoonStart || isEveningStart) ? 'border-t-2 border-gray-300' : '';
+                row.className = 'grid grid-cols-[60px_repeat(6,1fr)] gap-4';
                 
+                const prevHour = hourIndex > 0 ? Object.keys(timeBlocks).sort()[hourIndex - 1] : -1;
+                const isAfternoonStart = hour >= 12 && prevHour < 12;
+                const isEveningStart = hour >= 18 && prevHour < 18;
+                const separatorClass = (isAfternoonStart || isEveningStart) ? 'border-t-2 border-gray-300' : '';
+
+                const timeLabel = document.createElement('div');
+                timeLabel.className = `font-bold text-gray-500 p-2 text-center flex items-center justify-center rounded-lg ${separatorClass}`;
+                timeLabel.textContent = `${hour}:00`;
+                row.appendChild(timeLabel);
+
                 weekDates.forEach((date, dayIndex) => {
                     const dateString = date.toISOString().slice(0, 10);
                     const dayName = weekdays[dayIndex];
                     const cell = document.createElement('div');
-                    cell.className = `p-1 min-h-[120px] ${separatorClass}`;
-
+                    cell.className = `p-1 space-y-1 ${separatorClass}`;
+                    
                     const overrideData = overrides[dateString];
-                    if (overrideData?.status === 'rest_day') {
-                        cell.innerHTML = `<div class="h-full p-2 rounded-lg flex flex-col justify-center items-center text-left status-expired"><p class="font-bold">本日公休</p></div>`;
-                    } else if (overrideData?.cancelledClasses?.includes(time)) {
-                        cell.innerHTML = `<div class="h-full p-2 rounded-lg flex flex-col justify-center items-center text-left status-expired"><p class="font-bold">本日停課</p></div>`;
-                    }
-                    else {
-                        let finalTime = overrideData?.timeChanges?.[time] || time;
-                        let courseName = schedule[dayName]?.[time];
-                        if(overrideData?.classChanges?.[time]) {
-                            courseName = overrideData.classChanges[time];
-                        }
 
-                        if (courseName) {
-                            const classDateTime = getClassDateTime(date, finalTime);
-                            const courseId = `${dateString}-${time}`; // Use original time for ID
-                            
-                            cell.innerHTML = `
-                                <div id="${courseId}" class="course-card h-full p-2 rounded-lg flex flex-col justify-between border text-left">
-                                    <div>
-                                        <p class="font-bold text-center">${courseName}</p>
-                                        <p class="text-xs text-center text-gray-500">${finalTime}</p>
-                                        <div class="attendee-info mt-1 text-xs text-gray-700 overflow-hidden h-10"></div>
-                                    </div>
-                                    <div class="mt-auto pt-1">
-                                        <div class="w-full progress-bar-bg rounded-full h-1.5"><div class="progress-bar bg-gray-400 h-1.5 rounded-full"></div></div>
-                                        <p class="text-xs text-right mt-1 text-gray-500">0/6</p>
-                                    </div>
-                                </div>`;
-                            
-                            const cardElement = cell.firstElementChild;
-                            const isExpired = new Date() > classDateTime;
-                            if (!isExpired) {
-                                cardElement.classList.add('cursor-pointer', 'transition-all', 'duration-200', 'hover:shadow-md', 'hover:-translate-y-1');
-                                onSnapshot(doc(db, `/artifacts/${appId}/public/data/courses`, courseId), (docSnap) => {
-                                    updateCardUI(courseId, docSnap.exists() ? docSnap.data() : { attendees: [], courseName }, classDateTime, overrideData);
-                                }, (error) => {
-                                    console.error(`Snapshot listener for ${courseId} failed:`, error);
-                                    if (error.code === 'permission-denied' && !document.querySelector('.bg-red-100')) {
-                                        displayPermissionsError();
-                                    }
-                                });
-                                cardElement.addEventListener('click', () => openBookingModal(courseId, classDateTime));
-                            } else {
-                                updateCardUI(courseId, { attendees: [], courseName }, classDateTime, overrideData);
+                    if (overrideData?.status === 'rest_day') {
+                        cell.innerHTML = `<div class="h-full min-h-[120px] p-2 rounded-lg flex flex-col justify-center items-center text-left status-expired"><p class="font-bold">本日公休</p></div>`;
+                    } else {
+                        timeBlocks[hour].forEach(time => {
+                             if (overrideData?.cancelledClasses?.includes(time)) {
+                                 const courseDiv = document.createElement('div');
+                                 courseDiv.className = 'h-full min-h-[120px] p-2 rounded-lg flex flex-col justify-center items-center text-left status-expired';
+                                 courseDiv.innerHTML = `<p class="font-bold">本日停課</p>`;
+                                 cell.appendChild(courseDiv);
+                                 return;
                             }
-                        }
+
+                            let finalTime = overrideData?.timeChanges?.[time] || time;
+                            let courseName = schedule[dayName]?.[time];
+                            if(overrideData?.classChanges?.[time]) {
+                                courseName = overrideData.classChanges[time];
+                            }
+
+                            if (courseName) {
+                                const classDateTime = getClassDateTime(date, finalTime);
+                                const courseId = `${dateString}-${time}`; // Use original time for ID
+                                
+                                const courseDiv = document.createElement('div');
+                                courseDiv.className = 'min-h-[120px]';
+                                courseDiv.innerHTML = `
+                                    <div id="${courseId}" class="course-card h-full p-2 rounded-lg flex flex-col justify-between border text-left">
+                                        <div>
+                                            <p class="font-bold text-center">${courseName}</p>
+                                            <p class="text-xs text-center text-gray-500">${finalTime}</p>
+                                            <div class="attendee-info mt-1 text-xs text-gray-700 overflow-hidden h-10"></div>
+                                        </div>
+                                        <div class="mt-auto pt-1">
+                                            <div class="w-full progress-bar-bg rounded-full h-1.5"><div class="progress-bar bg-gray-400 h-1.5 rounded-full"></div></div>
+                                            <p class="text-xs text-right mt-1 text-gray-500">0/6</p>
+                                        </div>
+                                    </div>`;
+                                
+                                const cardElement = courseDiv.firstElementChild;
+                                const isExpired = new Date() > classDateTime;
+                                if (!isExpired) {
+                                    cardElement.classList.add('cursor-pointer', 'transition-all', 'duration-200', 'hover:shadow-md', 'hover:-translate-y-1');
+                                    onSnapshot(doc(db, `/artifacts/${appId}/public/data/courses`, courseId), (docSnap) => {
+                                        updateCardUI(courseId, docSnap.exists() ? docSnap.data() : { attendees: [], courseName }, classDateTime, overrideData);
+                                    }, (error) => {
+                                        if (error.code === 'permission-denied' && !document.querySelector('.bg-red-100')) displayPermissionsError();
+                                    });
+                                    cardElement.addEventListener('click', () => openBookingModal(courseId, classDateTime));
+                                } else {
+                                    updateCardUI(courseId, { attendees: [], courseName }, classDateTime, overrideData);
+                                }
+                                cell.appendChild(courseDiv);
+                            }
+                        });
                     }
                      row.appendChild(cell);
                 });
