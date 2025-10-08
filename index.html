@@ -34,6 +34,23 @@
         .modal-content {
             transition: transform 0.25s ease;
         }
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 5px rgba(99, 102, 241, 0); } /* indigo-500 */
+            50% { box-shadow: 0 0 20px 8px rgba(99, 102, 241, 0.4); }
+        }
+        .glow-animation {
+            animation: glow 2s ease-in-out;
+        }
+
+        @keyframes shake {
+          10%, 90% { transform: translate3d(-1px, 0, 0); }
+          20%, 80% { transform: translate3d(2px, 0, 0); }
+          30%, 50%, 70% { transform: translate3d(-4px, 0, 0); }
+          40%, 60% { transform: translate3d(4px, 0, 0); }
+        }
+        .shake-animation {
+            animation: shake 0.82s cubic-bezier(.36,.07,.19,.97) both;
+        }
     </style>
 </head>
 <body class="antialiased text-gray-800">
@@ -64,7 +81,7 @@
             <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-gray-200 border border-gray-400 mr-2"></span><span>已結束/公休</span></div>
         </div>
         
-        <div class="bg-white p-4 rounded-2xl shadow-lg overflow-x-auto">
+        <div id="schedule-wrapper" class="bg-white p-4 rounded-2xl shadow-lg overflow-x-auto">
             <div class="flex items-center justify-between mb-4 px-2">
                 <button id="prevWeekBtn" title="前一週" class="p-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
@@ -213,10 +230,16 @@
                 adminLoginIconContainer.classList.add('hidden');
             } else {
                  userInfoContainer.innerHTML = `
-                    <div class="p-3 bg-orange-100 border border-orange-200 rounded-lg flex items-center gap-2 max-w-lg mx-auto w-full">
-                        <label for="userNameInput" class="text-sm font-medium text-orange-800 whitespace-nowrap">您的姓名:</label>
-                        <input type="text" id="userNameInput" class="w-full px-2 py-1 text-sm border-orange-300 rounded-md" placeholder="請輸入姓名以利報名">
-                        <button id="saveNameBtn" class="px-3 py-1 bg-orange-500 text-white text-sm rounded-md hover:bg-orange-600">儲存</button>
+                    <div class="p-4 bg-orange-100 border border-orange-200 rounded-lg max-w-lg mx-auto w-full text-center">
+                        <div class="flex items-center gap-2">
+                            <label for="userNameInput" class="text-sm font-medium text-orange-800 whitespace-nowrap">您的姓名:</label>
+                            <input type="text" id="userNameInput" class="w-full px-2 py-1 text-sm border-orange-300 rounded-md" placeholder="請輸入姓名以利報名">
+                            <button id="saveNameBtn" class="px-4 py-1 bg-orange-500 text-white text-sm rounded-md hover:bg-orange-600 relative overflow-hidden flex-shrink-0 w-20 h-8">
+                                <span class="btn-text absolute inset-0 flex items-center justify-center transition-opacity duration-300">儲存</span>
+                                <span class="save-feedback absolute inset-0 flex items-center justify-center bg-green-500 text-white rounded-md opacity-0 pointer-events-none transition-opacity duration-300">已儲存！</span>
+                            </button>
+                        </div>
+                        <div id="user-guidance" class="text-sm text-gray-700 mt-3 h-5"></div>
                     </div>`;
                 adminLoginIconContainer.classList.remove('hidden');
                 document.getElementById('userNameInput').value = currentUserName;
@@ -226,12 +249,40 @@
 
         function saveUserName() {
             const nameToSave = document.getElementById('userNameInput').value.trim();
+            const guidanceEl = document.getElementById('user-guidance');
+            const saveBtn = document.getElementById('saveNameBtn');
+            const feedbackEl = saveBtn.querySelector('.save-feedback');
+            const btnTextEl = saveBtn.querySelector('.btn-text');
+            const scheduleWrapper = document.getElementById('schedule-wrapper');
+
+            guidanceEl.innerHTML = '';
+
             if (nameToSave) {
                 currentUserName = nameToSave;
                 localStorage.setItem('jpsUserName', nameToSave);
-                alert('姓名已儲存！');
+                
+                btnTextEl.classList.add('opacity-0');
+                feedbackEl.classList.remove('opacity-0', 'pointer-events-none');
+
+                setTimeout(() => {
+                    btnTextEl.classList.remove('opacity-0');
+                    feedbackEl.classList.add('opacity-0', 'pointer-events-none');
+                }, 2000);
+
+                guidanceEl.innerHTML = `<p class="text-indigo-700 font-semibold animate-pulse">您好，${currentUserName}！請點擊下方您想預約的課程。</p>`;
+                
+                scheduleWrapper.classList.add('glow-animation');
+                scheduleWrapper.addEventListener('animationend', () => {
+                    scheduleWrapper.classList.remove('glow-animation');
+                }, { once: true });
+
             } else {
-                alert('請輸入有效的姓名。');
+                guidanceEl.innerHTML = `<p class="text-red-600 font-semibold">請輸入有效的姓名。</p>`;
+                const userInput = document.getElementById('userNameInput');
+                userInput.classList.add('shake-animation');
+                userInput.addEventListener('animationend', () => {
+                     userInput.classList.remove('shake-animation');
+                }, { once: true });
             }
         }
         
