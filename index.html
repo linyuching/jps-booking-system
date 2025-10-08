@@ -53,7 +53,7 @@
             </div>
         </header>
 
-        <div id="userInfoContainer" class="grid md:grid-cols-2 gap-4 mb-6">
+        <div id="userInfoContainer" class="mb-6">
              <!-- User/Admin info will be injected here -->
         </div>
 
@@ -204,14 +204,8 @@
                     </div>`;
                 adminLoginIconContainer.classList.add('hidden');
             } else {
-                userInfoContainer.innerHTML = `
-                    <div class="p-3 bg-indigo-100 border border-indigo-200 rounded-lg text-center">
-                        <p class="text-sm text-indigo-800">您的專屬 ID: 
-                            <strong id="userId" class="font-mono cursor-pointer" title="點擊以複製完整 ID"></strong>
-                            <span id="copyFeedback" class="text-xs text-green-600 font-bold ml-2 opacity-0 transition-opacity duration-300">已複製！</span>
-                        </p>
-                    </div>
-                    <div class="p-3 bg-orange-100 border border-orange-200 rounded-lg flex items-center gap-2">
+                 userInfoContainer.innerHTML = `
+                    <div class="p-3 bg-orange-100 border border-orange-200 rounded-lg flex items-center gap-2 max-w-lg mx-auto w-full">
                         <label for="userNameInput" class="text-sm font-medium text-orange-800 whitespace-nowrap">您的姓名:</label>
                         <input type="text" id="userNameInput" class="w-full px-2 py-1 text-sm border-orange-300 rounded-md" placeholder="請輸入姓名以利報名">
                         <button id="saveNameBtn" class="px-3 py-1 bg-orange-500 text-white text-sm rounded-md hover:bg-orange-600">儲存</button>
@@ -219,19 +213,6 @@
                 adminLoginIconContainer.classList.remove('hidden');
                 document.getElementById('userNameInput').value = currentUserName;
                 document.getElementById('saveNameBtn').addEventListener('click', saveUserName);
-                
-                const userIdEl = document.getElementById('userId');
-                if (currentUserId) {
-                    userIdEl.textContent = `${currentUserId.substring(0, 8)}...`;
-                    userIdEl.addEventListener('click', () => {
-                        if (copyToClipboard(currentUserId)) {
-                            document.getElementById('copyFeedback').style.opacity = '1';
-                            setTimeout(() => { document.getElementById('copyFeedback').style.opacity = '0'; }, 2000);
-                        } else {
-                            alert("複製失敗，請手動複製。");
-                        }
-                    });
-                }
             }
         }
 
@@ -306,48 +287,6 @@
             modal.querySelector('.modal-content')?.classList.add('-translate-y-10');
         }
         
-        function copyToClipboard(text) {
-             const textArea = document.createElement("textarea");
-            textArea.value = text;
-            document.body.appendChild(textArea);
-            textArea.focus();
-            textArea.select();
-            try { return document.execCommand('copy'); } 
-            catch (err) { return false; } 
-            finally { document.body.removeChild(textArea); }
-        }
-        
-        const scheduleContainer = document.getElementById('scheduleContainer');
-        const prevWeekBtn = document.getElementById('prevWeekBtn');
-        const nextWeekBtn = document.getElementById('nextWeekBtn');
-        const todayBtn = document.getElementById('todayBtn');
-
-        prevWeekBtn.addEventListener('click', () => {
-            currentDate.setDate(currentDate.getDate() - 7);
-            initializeSchedule();
-        });
-
-        nextWeekBtn.addEventListener('click', () => {
-            currentDate.setDate(currentDate.getDate() + 7);
-            initializeSchedule();
-        });
-
-        todayBtn.addEventListener('click', () => {
-            currentDate = new Date();
-            initializeSchedule();
-        });
-
-
-        function displayPermissionsError() {
-            const appContainer = document.getElementById('app');
-            appContainer.innerHTML = `
-                <div class="p-4 md:p-8 max-w-4xl mx-auto text-center text-red-600">
-                    <h2 class="font-bold text-2xl mb-4">無法載入課表</h2>
-                    <p>讀取資料時發生錯誤，請聯繫系統管理員。</p>
-                </div>
-            `;
-        }
-        
         function getWeekInfo(refDate) {
             const today = new Date(refDate);
             today.setHours(0, 0, 0, 0); // Normalize to the very beginning of the day
@@ -378,14 +317,6 @@
             classDateTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
             return classDateTime;
         }
-
-        // A more robust way to parse YYYY-MM-DD to avoid timezone issues.
-        function parseDateString(dateString) {
-            const [year, month, day] = dateString.split('-').map(Number);
-            // Create date in local time zone at midnight.
-            return new Date(year, month - 1, day);
-        }
-        
 
         function updateCardUI(courseId, courseData, classDateTime, overrideData) {
             const cardElement = document.getElementById(courseId);
