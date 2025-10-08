@@ -284,8 +284,13 @@
         });
 
         document.getElementById('adminLogoutBtn')?.addEventListener('click', () => {
-            signOut(auth).catch(error => console.error("Sign out failed:", error));
-            // onAuthStateChanged will automatically handle the UI update and anonymous sign-in
+            signOut(auth).then(() => {
+                // Reload the page to ensure a clean state after admin logs out
+                window.location.reload();
+            }).catch(error => {
+                console.error("Sign out failed:", error)
+                alert('登出時發生錯誤。');
+            });
         });
 
         function openModal(modal) {
@@ -677,4 +682,5 @@ service cloud.firestore {
     </script>
 </body>
 </html>
+
 
