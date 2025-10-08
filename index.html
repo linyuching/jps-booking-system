@@ -338,25 +338,9 @@
         function displayPermissionsError() {
             const appContainer = document.getElementById('app');
             appContainer.innerHTML = `
-                <div class="p-4 md:p-8 max-w-4xl mx-auto bg-red-100 border-l-4 border-red-500 text-red-700">
-                    <h2 class="font-bold text-2xl mb-4">Firebase 權限錯誤 (Permission Denied)</h2>
-                    <p class="mb-2">系統偵測到無法讀取資料庫，這通常是因為 Firestore 的「安全性規則」尚未設定。</p>
-                    <p class="mb-4">為了讓預約系統正常運作，請依照以下步驟更新您的 Firebase 安全規則：</p>
-                    <ol class="list-decimal list-inside space-y-2 mb-4">
-                        <li>前往您的 <a href="https://console.firebase.google.com/" target="_blank" class="underline font-bold">Firebase 控制台</a>。</li>
-                        <li>選擇您的專案，然後點擊左側選單的 <strong>Firestore Database</strong>。</li>
-                        <li>點擊上方的 <strong>規則 (Rules)</strong> 頁籤。</li>
-                        <li>將編輯器中所有的內容，替換為下方的程式碼，然後點擊 <strong>發布 (Publish)</strong>。</li>
-                    </ol>
-                    <pre class="bg-gray-800 text-white p-4 rounded-md overflow-x-auto"><code>rules_version = '2';
-service cloud.firestore {
-  match /databases/{database}/documents {
-    match /artifacts/{appId}/public/data/{document=**} {
-      allow read, write: if request.auth != null;
-    }
-  }
-}</code></pre>
-                    <p class="mt-4">發布新的規則後，請重新整理此頁面。</p>
+                <div class="p-4 md:p-8 max-w-4xl mx-auto text-center text-red-600">
+                    <h2 class="font-bold text-2xl mb-4">無法載入課表</h2>
+                    <p>讀取資料時發生錯誤，請聯繫系統管理員。</p>
                 </div>
             `;
         }
@@ -682,5 +666,6 @@ service cloud.firestore {
     </script>
 </body>
 </html>
+
 
 
