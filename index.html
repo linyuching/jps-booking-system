@@ -81,22 +81,24 @@
             <div class="flex items-center"><span class="w-4 h-4 rounded-full bg-gray-200 border border-gray-400 mr-2"></span><span>已結束/公休</span></div>
         </div>
         
-        <div id="schedule-wrapper" class="bg-white p-4 rounded-2xl shadow-lg overflow-x-auto">
+        <div id="schedule-wrapper" class="bg-white p-4 rounded-2xl shadow-lg">
             <div class="flex items-center justify-between mb-4 px-2">
-                <button id="prevWeekBtn" title="前一週" class="p-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
+                <button id="prevWeekBtn" title="前一週" class="p-2 rounded-full bg-gray-100 border border-gray-200 shadow-sm hover:bg-gray-200 transition-colors flex items-center gap-1 md:rounded-lg md:px-3">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" /></svg>
                     <span class="hidden md:inline text-sm font-medium text-gray-700">前一週</span>
                 </button>
                 <div class="text-center">
                     <h3 id="weekRangeDisplay" class="text-lg font-bold text-gray-700"></h3>
                     <button id="todayBtn" class="text-xs px-2 py-1 mt-1 bg-indigo-100 text-indigo-700 rounded-md hover:bg-indigo-200 transition-colors whitespace-nowrap">回到本週</button>
                 </div>
-                <button id="nextWeekBtn" title="後一週" class="p-2 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-1">
+                <button id="nextWeekBtn" title="後一週" class="p-2 rounded-full bg-gray-100 border border-gray-200 shadow-sm hover:bg-gray-200 transition-colors flex items-center gap-1 md:rounded-lg md:px-3">
                     <span class="hidden md:inline text-sm font-medium text-gray-700">下一週</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" /></svg>
                 </button>
             </div>
-            <div id="scheduleContainer"></div>
+            <div class="overflow-x-auto">
+                 <div id="scheduleContainer"></div>
+            </div>
         </div>
 
         <footer class="text-center mt-8 text-sm text-gray-500">
