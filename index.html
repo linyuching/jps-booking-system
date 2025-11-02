@@ -71,7 +71,7 @@
         </header>
 
         <div id="userInfoContainer" class="mb-6">
-             <!-- User/Admin info will be injected here -->
+            <!-- User/Admin info will be injected here -->
         </div>
 
         <div class="flex flex-wrap justify-center gap-2 md:gap-4 mb-6 text-xs md:text-sm">
@@ -107,11 +107,20 @@
 
     <div id="adminPanel" class="hidden container mx-auto p-4 md:p-8 max-w-7xl mt-8">
         <div class="bg-white p-6 rounded-2xl shadow-lg">
-            <div class="flex justify-between items-center mb-6">
+            <div class="flex flex-wrap justify-between items-center mb-6 gap-4">
                 <h2 class="text-2xl md:text-3xl font-bold text-gray-800">管理者後台</h2>
-                <button id="adminLogoutBtn" class="px-4 py-2 bg-red-500 text-white text-sm rounded-md hover:bg-red-600 transition-colors">登出</button>
+                <div class="flex gap-4">
+                     <button id="editScheduleTemplateBtn" class="px-4 py-2 bg-purple-600 text-white text-sm rounded-md hover:bg-purple-700 transition-colors">
+                        編輯預設週課表
+                    </button>
+                    <button id="adminLogoutBtn" class="px-4 py-2 bg-red-500 text-white text-sm rounded-md hover:bg-red-600 transition-colors">
+                        登出
+                    </button>
+                </div>
             </div>
-            <div id="adminCourseList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+            <div id="adminCourseList" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Admin content will be loaded here, possibly for specific course management -->
+            </div>
         </div>
     </div>
     
@@ -120,12 +129,16 @@
     <div id="bookingModal" class="modal fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 opacity-0 pointer-events-none"></div>
     <div id="confirmModal" class="modal fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-60 opacity-0 pointer-events-none"></div>
     <div id="editDayModal" class="modal fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-60 opacity-0 pointer-events-none"></div>
+    <!-- New Modal for editing schedule template -->
+    <div id="editScheduleTemplateModal" class="modal fixed inset-0 z-[100] flex items-center justify-center bg-black bg-opacity-60 opacity-0 pointer-events-none"></div>
+
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getFirestore, doc, onSnapshot, updateDoc, setDoc, getDoc, collection, query, where, getDocs, arrayUnion, arrayRemove, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, signOut, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         
+        // --- Firebase Config ---
         const firebaseConfig = {
 			apiKey: "AIzaSyBIeXTW1yCsASMPY64HhdDoXYIygl08f34",
 			authDomain: "jps-booking-system.firebaseapp.com",
@@ -136,23 +149,15 @@
 		};
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
+        // --- Global Variables ---
         let db, auth;
-        if (firebaseConfig.apiKey) {
-            try {
-                const app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
-            } catch (e) { console.error("Firebase initialization failed:", e); }
-        } else {
-             document.body.innerHTML = "Firebase 設定無效或不存在。";
-        }
-
         let currentUserId = null;
         let currentUserName = '';
         let currentDate = new Date();
         let isAdmin = false;
         let unsubscribeListeners = [];
 
+        // --- Course & Schedule Definitions ---
         const weekdays = ["週一", "週二", "週三", "週四", "週五", "週六"];
         const courseDetails = {
             "入門跳床": { type: "有氧", min: 3, max: 8 }, 
@@ -163,51 +168,237 @@
             "壺鈴綜合訓練": { type: "肌力", min: 1, max: 6 },
         };
         
-        const schedule = {
+        // This is the default template if nothing is in the database.
+        // It's based on the user's last request (empty Tuesday).
+        const initialScheduleTemplate = {
             "週一": { "18:15-19:00": "壺鈴綜合訓練", "19:15-20:00": "入門跳床", "20:15-21:15": "懸吊TRX" },
-            "週二": { "10:00-10:45": "入門跳床", "14:00-14:45": "入門階梯", "19:15-20:00": "入門跳床", "20:15-21:00": "壺鈴綜合訓練" },
+            "週二": {},
             "週三": { "10:00-10:45": "基礎肌力", "11:00-12:00": "懸吊TRX", "18:15-19:00": "基礎肌力", "19:15-20:00": "燃脂跳床" },
             "週四": { "10:00-10:45": "基礎肌力", "11:15-12:00": "入門階梯", "14:00-15:00": "懸吊TRX", "18:15-19:00": "入門跳床", "19:15-20:00": "基礎肌力", "20:15-21:15": "懸吊TRX" },
             "週五": { "10:00-10:45": "入門跳床", "11:15-12:00": "壺鈴綜合訓練", "14:00-14:45": "基礎肌力", "18:15-19:00": "入門階梯", "19:15-20:00": "燃脂跳床", "20:15-21:00": "基礎肌力"},
             "週六": { "10:00-10:45": "入門跳床", "11:15-12:00": "燃脂跳床" }
         };
         
+        // This variable will hold the schedule loaded from Firestore.
+        let weeklyScheduleTemplate = {};
+        let scheduleTemplateRef; // Will be set after DB init
+
+        // --- DOM Elements ---
         const userInfoContainer = document.getElementById('userInfoContainer');
         const adminLoginModalEl = document.getElementById('adminLoginModal');
         const bookingModalEl = document.getElementById('bookingModal');
         const editDayModalEl = document.getElementById('editDayModal');
+        const editScheduleTemplateModalEl = document.getElementById('editScheduleTemplateModal');
         const scheduleContainer = document.getElementById('scheduleContainer');
         const prevWeekBtn = document.getElementById('prevWeekBtn');
         const nextWeekBtn = document.getElementById('nextWeekBtn');
         const todayBtn = document.getElementById('todayBtn');
 
-        function clearFirestoreListeners() {
-            unsubscribeListeners.forEach(unsub => unsub());
-            unsubscribeListeners = [];
-        }
-        
+        // --- Initialization ---
         function main() {
+            if (firebaseConfig.apiKey) {
+                try {
+                    const app = initializeApp(firebaseConfig);
+                    db = getFirestore(app);
+                    auth = getAuth(app);
+                    // Set the Firestore reference for the schedule template
+                    scheduleTemplateRef = doc(db, `/artifacts/${appId}/public/data/schedule_templates`, 'main_template');
+                } catch (e) { console.error("Firebase initialization failed:", e); }
+            } else {
+                 document.body.innerHTML = "Firebase 設定無效或不存在。";
+                 return;
+            }
+
             if (!auth) {
                 document.body.innerHTML = "Firebase authentication service is not available.";
                 return;
             }
+
             onAuthStateChanged(auth, user => {
-                if (user) handleUserSession(user);
-                else signInAnonymously(auth).catch(err => console.error("Anonymous sign-in failed", err));
+                if (user) {
+                    handleUserSession(user);
+                } else {
+                    signInAnonymously(auth).catch(err => console.error("Anonymous sign-in failed", err));
+                }
             });
         }
         main();
 
-        function handleUserSession(user) {
+        // --- Auth & Session ---
+        async function handleUserSession(user) {
             isAdmin = !user.isAnonymous;
             currentUserId = user.uid;
             currentUserName = isAdmin ? (user.email || 'Admin') : (localStorage.getItem('jpsUserName') || '');
+            
+            // CRITICAL: Load the schedule template *before* initializing the UI
+            await loadScheduleTemplate();
+            
             renderUserInfo();
-            initializeSchedule();
+            initializeSchedule(); // This will now use the loaded weeklyScheduleTemplate
             document.getElementById('adminPanel').classList.toggle('hidden', !isAdmin);
             if (isAdmin) initializeAdminView();
         }
 
+        function clearFirestoreListeners() {
+            unsubscribeListeners.forEach(unsub => unsub());
+            unsubscribeListeners = [];
+        }
+
+        // --- Schedule Template Management (NEW) ---
+        async function loadScheduleTemplate() {
+            try {
+                const docSnap = await getDoc(scheduleTemplateRef);
+                if (docSnap.exists()) {
+                    weeklyScheduleTemplate = docSnap.data().schedule;
+                } else {
+                    // Document doesn't exist, use the initial template and set it in Firestore
+                    console.log("No schedule template found, creating one...");
+                    weeklyScheduleTemplate = initialScheduleTemplate;
+                    await setDoc(scheduleTemplateRef, { schedule: initialScheduleTemplate });
+                }
+            } catch (error) {
+                console.error("Error loading schedule template:", error);
+                // Fallback to initial template in case of error
+                weeklyScheduleTemplate = initialScheduleTemplate; 
+            }
+        }
+        
+        function openEditScheduleTemplateModal() {
+            let courseOptions = Object.keys(courseDetails).map(c => `<option value="${c}">${c}</option>`).join('');
+            
+            let dayHtml = weekdays.map(day => {
+                let daySchedule = weeklyScheduleTemplate[day] || {};
+                // Sort by time
+                let sortedEntries = Object.entries(daySchedule).sort((a, b) => a[0].localeCompare(b[0]));
+
+                let classHtml = sortedEntries.map(([time, course]) => `
+                    <div class="class-item flex justify-between items-center p-2 bg-gray-100 rounded">
+                        <span class="font-mono">${time}</span>
+                        <span>${course}</span>
+                        <button class="delete-class-btn text-red-500 hover:text-red-700 font-bold" data-day="${day}" data-time="${time}">✕</button>
+                    </div>
+                `).join('');
+
+                return `
+                    <div class="day-editor p-4 border rounded-lg bg-white shadow-sm">
+                        <h4 class="text-lg font-bold mb-3 text-center text-indigo-700">${day}</h4>
+                        <div class="class-list space-y-2 mb-3 min-h-[50px]">${classHtml || '<p class="text-gray-400 text-sm text-center">本日無課程</p>'}</div>
+                        <form class="add-class-form flex flex-col md:flex-row gap-2" data-day="${day}">
+                            <input type="text" placeholder="HH:MM-HH:MM" class="time-input w-full md:w-2/5 p-2 border rounded font-mono" required>
+                            <select class="course-select w-full md:w-2/5 p-2 border rounded bg-white">${courseOptions}</select>
+                            <button type="submit" class="w-full md:w-1/5 bg-green-500 text-white p-2 rounded text-sm hover:bg-green-600">新增</button>
+                        </form>
+                    </div>
+                `;
+            }).join('');
+
+            editScheduleTemplateModalEl.innerHTML = `
+                <div class="modal-content bg-gray-100 rounded-xl shadow-lg w-11/12 max-w-6xl m-4 flex flex-col max-h-[90vh]">
+                    <h3 class="p-6 text-2xl font-bold text-center border-b bg-white rounded-t-xl">編輯預設週課表</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-6 overflow-y-auto">
+                        ${dayHtml}
+                    </div>
+                    <div class="p-4 flex-shrink-0 border-t bg-gray-50 rounded-b-xl flex justify-end gap-3">
+                        <button type="button" class="close-modal-btn px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">取消</button>
+                        <button id="saveScheduleTemplateBtn" class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">儲存並刷新</button>
+                    </div>
+                </div>
+            `;
+
+            // --- Add Event Listeners for the new modal ---
+            
+            // Helper function to add delete listener (since we add/remove items)
+            const addDeleteListener = (btn) => {
+                btn.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    // Just remove from UI. Save button will rebuild from the UI state.
+                    e.target.closest('.class-item').remove(); 
+                });
+            };
+
+            // Add listeners for existing delete buttons
+            editScheduleTemplateModalEl.querySelectorAll('.delete-class-btn').forEach(addDeleteListener);
+
+            // Add listeners for "add-class-form"
+            editScheduleTemplateModalEl.querySelectorAll('.add-class-form').forEach(form => {
+                form.addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    const day = e.target.dataset.day;
+                    const timeInput = e.target.querySelector('.time-input');
+                    const time = timeInput.value.trim();
+                    const course = e.target.querySelector('.course-select').value;
+                    
+                    // Simple time validation
+                    if (!time.match(/^\d{2}:\d{2}-\d{2}:\d{2}$/)) {
+                        alert("請輸入正確的時間格式 HH:MM-HH:MM (例如 19:15-20:00)");
+                        timeInput.focus();
+                        return;
+                    }
+                    
+                    // Add to UI
+                    const newList = e.target.closest('.day-editor').querySelector('.class-list');
+                    if (newList.querySelector('p')) newList.innerHTML = ''; // Clear "no class" text
+                    
+                    const newItemEl = document.createElement('div');
+                    newItemEl.className = 'class-item flex justify-between items-center p-2 bg-gray-100 rounded';
+                    newItemEl.innerHTML = `
+                        <span class="font-mono">${time}</span>
+                        <span>${course}</span>
+                        <button class="delete-class-btn text-red-500 hover:text-red-700 font-bold" data-day="${day}" data-time="${time}">✕</button>
+                    `;
+                    
+                    // Add new item and re-sort
+                    newList.appendChild(newItemEl);
+                    const items = Array.from(newList.querySelectorAll('.class-item'));
+                    items.sort((a, b) => a.querySelector('span.font-mono').textContent.localeCompare(b.querySelector('span.font-mono').textContent));
+                    items.forEach(item => newList.appendChild(item));
+
+                    // Add listener to the new delete button
+                    addDeleteListener(newItemEl.querySelector('.delete-class-btn'));
+                    
+                    timeInput.value = ''; // Clear input
+                });
+            });
+
+            editScheduleTemplateModalEl.querySelector('.close-modal-btn').addEventListener('click', () => closeModal(editScheduleTemplateModalEl));
+            editScheduleTemplateModalEl.querySelector('#saveScheduleTemplateBtn').addEventListener('click', handleSaveScheduleTemplate);
+            
+            openModal(editScheduleTemplateModalEl);
+        }
+
+        async function handleSaveScheduleTemplate() {
+            const newTemplate = {};
+            document.querySelectorAll('.day-editor').forEach(editor => {
+                const day = editor.querySelector('h4').textContent; // "週一", "週二", etc.
+                newTemplate[day] = {};
+                editor.querySelectorAll('.class-item').forEach(item => {
+                    const time = item.querySelector('span.font-mono').textContent;
+                    const course = item.querySelector('span:not(.font-mono)').textContent;
+                    newTemplate[day][time] = course;
+                });
+            });
+
+            try {
+                // Save to Firestore
+                await setDoc(scheduleTemplateRef, { schedule: newTemplate });
+                // Update in-memory variable
+                weeklyScheduleTemplate = newTemplate; 
+                
+                closeModal(editScheduleTemplateModalEl);
+                
+                // Full refresh of the main schedule view
+                await initializeSchedule(); 
+                
+                alert("預設課表已儲存！");
+
+            } catch (err) {
+                console.error("Error saving schedule template:", err);
+                alert("儲存失敗，請稍後再試。");
+            }
+        }
+
+
+        // --- User Info & Login ---
         function renderUserInfo() {
             const adminLoginIconContainer = document.getElementById('adminLoginIconContainer');
             if (isAdmin) {
@@ -301,13 +492,30 @@
             openModal(adminLoginModalEl);
         });
 
-        document.getElementById('adminLogoutBtn')?.addEventListener('click', () => {
-            signOut(auth).then(() => window.location.reload()).catch(err => console.error("Sign out failed:", err));
-        });
+        // --- Admin Panel ---
+        function initializeAdminView() {
+            // Add listener for the new "Edit Schedule Template" button
+            const editTemplateBtn = document.getElementById('editScheduleTemplateBtn');
+            if (editTemplateBtn) {
+                editTemplateBtn.addEventListener('click', openEditScheduleTemplateModal);
+            }
 
+            const adminLogoutBtn = document.getElementById('adminLogoutBtn');
+            if (adminLogoutBtn) {
+                 adminLogoutBtn.addEventListener('click', () => {
+                    signOut(auth).then(() => window.location.reload()).catch(err => console.error("Sign out failed:", err));
+                });
+            }
+            
+            // You can add more admin-specific UI initialization here
+            document.getElementById('adminCourseList').innerHTML = '<p class="text-gray-500">管理員功能已啟用。</p>';
+        }
+
+        // --- Modal Utilities ---
         function openModal(modal) { modal.classList.remove('opacity-0', 'pointer-events-none'); }
         function closeModal(modal) { modal.classList.add('opacity-0', 'pointer-events-none'); }
         
+        // --- Week Navigation ---
         prevWeekBtn.addEventListener('click', () => { currentDate.setDate(currentDate.getDate() - 7); initializeSchedule(); });
         nextWeekBtn.addEventListener('click', () => { currentDate.setDate(currentDate.getDate() + 7); initializeSchedule(); });
         todayBtn.addEventListener('click', () => { currentDate = new Date(); initializeSchedule(); });
@@ -332,21 +540,203 @@
             return classDateTime;
         }
 
+        // --- Main Schedule Rendering ---
+        async function initializeSchedule() {
+            clearFirestoreListeners(); 
+            if (!currentUserId || !weeklyScheduleTemplate) {
+                // Wait for auth and schedule template to be ready
+                return;
+            }
+            
+            const { weekDates, rangeStr } = getWeekInfo(currentDate);
+            document.getElementById('weekRangeDisplay').textContent = rangeStr;
+
+            // Fetch all overrides for the current week
+            const startDate = weekDates[0].toISOString().slice(0, 10);
+            const endDate = weekDates[5].toISOString().slice(0, 10);
+            const overrides = {};
+            try {
+                const q = query(collection(db, `/artifacts/${appId}/public/data/schedule_overrides`), where('date', '>=', startDate), where('date', '<=', endDate));
+                const querySnapshot = await getDocs(q);
+                querySnapshot.forEach(doc => { overrides[doc.data().date] = doc.data(); });
+            } catch (error) {
+                console.error("Could not fetch schedule overrides.", error);
+                if (error.code === 'permission-denied') { 
+                    document.getElementById('app').innerHTML = `<div class="p-4 text-red-600"><strong>錯誤：</strong>無法載入課表。請檢查 Firebase 安全性規則是否允許 'public/data' 的讀取權限。</div>`; 
+                    return; 
+                }
+            }
+            
+            // --- Re-draw the table ---
+            scheduleContainer.innerHTML = ''; // Clear previous table
+            const table = document.createElement('table');
+            table.className = "w-full min-w-[900px] border-collapse text-center";
+            const thead = document.createElement('thead');
+            const headerRow = document.createElement('tr');
+            const cornerTh = document.createElement('th');
+            cornerTh.className = "w-[80px]";
+            headerRow.appendChild(cornerTh);
+
+            weekdays.forEach((day, index) => {
+                const date = weekDates[index];
+                const dateString = date.toISOString().slice(0, 10);
+                const th = document.createElement('th');
+                th.className = "font-bold p-2 bg-gray-100 align-middle border border-gray-200";
+                let adminBtn = isAdmin ? `<button data-date="${dateString}" data-day-name="${day}" class="edit-day-btn text-xs mt-1 p-1 bg-gray-200 rounded font-normal hover:bg-gray-300">⚙️ 設定</button>` : '';
+                th.innerHTML = `<div class="flex flex-col items-center"><span>${day}</span><span class="text-xs font-normal">${date.getMonth()+1}/${date.getDate()}</span>${adminBtn}</div>`;
+                headerRow.appendChild(th);
+            });
+            thead.appendChild(headerRow);
+            table.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+            
+            // Get all unique time blocks from the template schedule
+            const timeBlocks = {};
+            Object.values(weeklyScheduleTemplate).forEach(daySchedule => {
+                Object.keys(daySchedule).forEach(time => {
+                    const hour = time.split(':')[0];
+                    if(!timeBlocks[hour]) timeBlocks[hour] = [];
+                    if(!timeBlocks[hour].includes(time)) timeBlocks[hour].push(time);
+                });
+            });
+
+            // Draw rows for each hour block
+            Object.keys(timeBlocks).sort().forEach((hour, hourIndex) => {
+                const tr = document.createElement('tr');
+                const prevHour = hourIndex > 0 ? Object.keys(timeBlocks).sort()[hourIndex - 1] : -1;
+                // Add visual separators for noon and evening
+                if ((hour >= 12 && prevHour < 12) || (hour >= 18 && prevHour < 18)) {
+                    tr.classList.add('border-t-2', 'border-gray-300');
+                }
+
+                const timeTh = document.createElement('th');
+                timeTh.scope = 'row';
+                timeTh.className = 'font-bold text-gray-500 p-2 align-middle border border-gray-200';
+                timeTh.textContent = `${hour}:00`;
+                tr.appendChild(timeTh);
+
+                // Draw cells for each day
+                weekDates.forEach((date, dayIndex) => {
+                    const dateString = date.toISOString().slice(0, 10);
+                    const dayName = weekdays[dayIndex];
+                    const td = document.createElement('td');
+                    td.className = 'p-1 align-top border border-gray-200 space-y-1';
+                    const overrideData = overrides[dateString];
+
+                    if (overrideData?.status === 'rest_day') {
+                        td.innerHTML = `<div class="h-full min-h-[120px] p-2 rounded-lg flex flex-col justify-center items-center text-left status-expired"><p class="font-bold">本日公休</p></div>`;
+                    } else {
+                        // Find classes for this hour block
+                        timeBlocks[hour].forEach(time => {
+                            if (overrideData?.cancelledClasses?.includes(time)) {
+                                 td.innerHTML += `<div class="h-full min-h-[120px] p-2 rounded-lg flex flex-col justify-center items-center text-left status-expired"><p class="font-bold">本日停課</p></div>`;
+                                 return; // Skip this class
+                            }
+                            
+                            // Check for this class in the template
+                            let courseName = weeklyScheduleTemplate[dayName]?.[time];
+                            if (!courseName) return; // No class at this time in the template
+
+                            // Apply overrides
+                            let finalTime = overrideData?.timeChanges?.[time] || time;
+                            if(overrideData?.classChanges?.[time]) courseName = overrideData.classChanges[time];
+                            
+                            // --- Create and Render the Course Card ---
+                            const classDateTime = getClassDateTime(date, finalTime);
+                            const courseId = `${dateString}-${time}`; // ID is based on *original* date and time
+                            const finalCourseNameToPass = courseName;
+                            const courseDiv = document.createElement('div');
+                            courseDiv.className = 'min-h-[120px]'; // Ensure consistent height
+                            courseDiv.innerHTML = `
+                                <div id="${courseId}" class="course-card h-full p-2 rounded-lg flex flex-col border text-left">
+                                    <div class="flex-grow">
+                                        <p class="font-bold text-center ${courseName === '燃脂跳床' ? 'text-red-500' : ''}">${courseName}</p>
+                                        <p class="text-xs text-center text-gray-500">${finalTime}</p>
+                                        <div class="attendee-info mt-1 text-xs text-gray-700 overflow-y-auto h-10"></div>
+                                    </div>
+                                    <div class="pt-1">
+                                        <div class="w-full progress-bar-bg rounded-full h-1.5"><div class="progress-bar bg-green-500 h-1.5 rounded-full"></div></div>
+                                        <p class="text-xs text-right mt-1 text-gray-500">0/0</p>
+                                    </div>
+                                </div>`;
+                            
+                            const cardElement = courseDiv.firstElementChild;
+                            const isExpired = new Date() > classDateTime;
+
+                            if (!isExpired) {
+                                cardElement.classList.add('cursor-pointer', 'transition-all', 'duration-200', 'hover:shadow-md', 'hover:-translate-y-1');
+                                cardElement.addEventListener('click', () => openBookingModal(courseId, classDateTime, finalCourseNameToPass));
+                            }
+
+                            // Attach a real-time listener for this specific course's bookings
+                            const unsub = onSnapshot(doc(db, `/artifacts/${appId}/public/data/courses`, courseId), (docSnap) => {
+                                const dbData = docSnap.exists() ? docSnap.data() : { attendees: [] };
+                                updateCardUI(courseId, { ...dbData, courseName: finalCourseNameToPass }, classDateTime);
+                            }, (error) => {
+                                if (error.code === 'permission-denied') console.error(`Permission denied for course ${courseId}.`);
+                                else console.error(`Snapshot error for ${courseId}:`, error);
+                            });
+                            unsubscribeListeners.push(unsub);
+                            
+                            td.appendChild(courseDiv);
+                        });
+                    }
+                    tr.appendChild(td);
+                });
+                tbody.appendChild(tr);
+            });
+            
+            table.appendChild(tbody);
+            scheduleContainer.appendChild(table);
+            
+            // Add listeners for the admin 'Edit Day' buttons
+            scheduleContainer.querySelectorAll('.edit-day-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    const button = e.target.closest('.edit-day-btn');
+                    openEditDayModal(button.dataset.date, button.dataset.dayName, overrides[button.dataset.date]);
+                });
+            });
+        }
+        
+        // --- Course Card UI & Booking Modals ---
+        
         function updateCardUI(courseId, courseData, classDateTime) {
             const cardEl = document.getElementById(courseId);
             if (!cardEl) return;
+            
             const { attendees, courseName } = courseData;
-            const details = courseDetails[courseName] || { min: 3, max: 8 };
+            const details = courseDetails[courseName] || { min: 3, max: 8 }; // Default if course not in map
             const currentCount = attendees?.length || 0;
             const isExpired = new Date() > classDateTime;
-            cardEl.querySelector('.attendee-info').innerHTML = attendees && attendees.length > 0 ? attendees.map(p => `<div>${p.name}</div>`).join('') : '<div class="text-gray-400">尚無人報名</div>';
-            cardEl.querySelector('.progress-bar').style.width = `${(currentCount / details.max) * 100}%`;
-            cardEl.querySelector('.text-right').textContent = `${currentCount}/${details.max}`;
+
+            // Update attendee list
+            cardEl.querySelector('.attendee-info').innerHTML = attendees && attendees.length > 0 ? attendees.map(p => `<div class="truncate">${p.name}</div>`).join('') : '<div class="text-gray-400">尚無人報名</div>';
+            
+            // Update progress bar
+            const progressBar = cardEl.querySelector('.progress-bar');
+            const progressText = cardEl.querySelector('.text-right');
+            
+            progressBar.style.width = `${(currentCount / details.max) * 100}%`;
+            progressText.textContent = `${currentCount}/${details.max}`;
+            
+            progressBar.classList.remove('bg-green-500', 'bg-yellow-500', 'bg-red-500');
+            
+            // Update card status (color)
             cardEl.classList.remove('status-pending', 'status-confirmed', 'status-full', 'status-expired');
-            if (isExpired) cardEl.classList.add('status-expired');
-            else if (currentCount >= details.max) cardEl.classList.add('status-full');
-            else if (currentCount >= details.min) cardEl.classList.add('status-confirmed');
-            else cardEl.classList.add('status-pending');
+            if (isExpired) {
+                cardEl.classList.add('status-expired');
+                progressBar.style.width = '0%';
+            } else if (currentCount >= details.max) {
+                cardEl.classList.add('status-full');
+                progressBar.classList.add('bg-red-500');
+            } else if (currentCount >= details.min) {
+                cardEl.classList.add('status-confirmed');
+                progressBar.classList.add('bg-green-500');
+            } else {
+                cardEl.classList.add('status-pending');
+                progressBar.classList.add('bg-yellow-500');
+            }
         }
 
         async function openBookingModal(courseId, classDateTime, courseName) {
@@ -355,25 +745,37 @@
                 document.getElementById('userNameInput').focus();
                 return;
             }
+            
             const docRef = doc(db, `/artifacts/${appId}/public/data/courses`, courseId);
             const docSnap = await getDoc(docRef);
             const courseData = docSnap.exists() ? docSnap.data() : { attendees: [] };
             const bookingId = `${currentUserId}_${currentUserName}`;
             const isBooked = courseData.attendees?.some(p => p.id === bookingId);
             const now = new Date();
-            const cancellationCutoffTime = new Date(classDateTime.getTime() - 60 * 60 * 1000);
+            const cancellationCutoffTime = new Date(classDateTime.getTime() - 60 * 60 * 1000); // 1 hour before class
 
-            if (isBooked && now > cancellationCutoffTime) { alert("已超過可取消的時間（上課前一小時）。"); return; }
-            if (!isBooked && now > classDateTime) { alert("課程已經開始，無法預約。"); return; }
+            // Check booking/cancellation rules
+            if (isBooked && now > cancellationCutoffTime && !isAdmin) { 
+                alert("已超過可取消的時間（上課前一小時）。"); 
+                return; 
+            }
+            if (!isBooked && now > classDateTime) { 
+                alert("課程已經開始，無法預約。"); 
+                return; 
+            }
             
             const details = courseDetails[courseName];
-            if (!details) { console.error(`Could not find details for course: ${courseName}`); alert("無法讀取課程資訊，請稍後再試。"); return; }
+            if (!details) { 
+                console.error(`Could not find details for course: ${courseName}`); 
+                alert("無法讀取課程資訊，請稍後再試。"); 
+                return; 
+            }
             
             const [date, time] = courseId.split('-');
             let attendeeListHtml = courseData.attendees?.map((p, i) =>
-                `<li class="flex justify-between items-center ${p.id === bookingId ? 'font-bold text-indigo-600' : ''}">
+                `<li class="flex justify-between items-center py-1 ${p.id === bookingId ? 'font-bold text-indigo-600' : ''}">
                     <span>${i + 1}. ${p.name}</span>
-                    ${isAdmin ? `<button data-id="${p.id}" class="remove-attendee-btn text-red-500 text-xs hover:text-red-700">移除</button>` : ''}
+                    ${isAdmin ? `<button data-id="${p.id}" class="remove-attendee-btn text-red-500 text-xs hover:text-red-700 px-2 py-1 bg-red-100 rounded">移除</button>` : ''}
                 </li>`
             ).join('') || '<li class="text-gray-500">尚無人報名</li>';
 
@@ -390,6 +792,7 @@
                         ${!isAdmin ? `<button id="bookingActionBtn" class="px-4 py-2 ${isBooked ? 'bg-red-600' : 'bg-green-600'} text-white rounded-lg">${isBooked ? '取消預約' : '確認預約'}</button>` : ''}
                     </div>
                 </div>`;
+                
             bookingModalEl.querySelector('.close-modal-btn').addEventListener('click', () => closeModal(bookingModalEl));
             const bookingActionBtn = bookingModalEl.querySelector('#bookingActionBtn');
             if (bookingActionBtn) bookingActionBtn.addEventListener('click', () => handleBooking(courseId, courseName));
@@ -412,13 +815,31 @@
                 const isCancellation = adminRemoveId || isBooked;
 
                 if (isCancellation) {
+                    // --- Handle Cancellation ---
                     const idToRemove = adminRemoveId || currentUserBookingId;
+                    const personToRemove = currentAttendees.find(p => p.id === idToRemove);
+                    
+                    if (isAdmin && adminRemoveId && !confirm(`您確定要移除 ${personToRemove?.name || '此學員'} 嗎？`)) {
+                        return; // Admin cancelled the removal
+                    }
+                    
                     const newAttendees = currentAttendees.filter(p => p.id !== idToRemove);
                     await updateDoc(docRef, { attendees: newAttendees });
+
                 } else {
+                    // --- Handle New Booking ---
                     if (!currentUserName) { alert("請輸入有效的姓名並儲存。"); return; }
+                    
+                    // Check if full
+                    const details = courseDetails[courseName] || { max: 8 };
+                    if (currentAttendees.length >= details.max) {
+                        alert("抱歉，這堂課已額滿。");
+                        return;
+                    }
+
                     const newUser = { id: currentUserBookingId, name: currentUserName };
                     const newAttendees = [...currentAttendees, newUser];
+                    
                     if(docSnap.exists()) await updateDoc(docRef, { attendees: newAttendees });
                     else await setDoc(docRef, { courseName: courseName, attendees: newAttendees });
                 }
@@ -430,10 +851,12 @@
             }
         }
         
+        // --- Admin Day Override Modal ---
+        // (This function now reads from weeklyScheduleTemplate)
         async function openEditDayModal(date, dayName, overrideData) {
-            const daySchedule = schedule[dayName] || {};
+            const daySchedule = weeklyScheduleTemplate[dayName] || {};
             let classEditHtml = Object.keys(daySchedule).map(originalTime => {
-                const courseName = schedule[dayName][originalTime];
+                const courseName = weeklyScheduleTemplate[dayName][originalTime];
                 const overrideClass = overrideData?.classChanges?.[originalTime] || courseName;
                 const overrideTime = overrideData?.timeChanges?.[originalTime] || originalTime;
                 const isCancelled = overrideData?.cancelledClasses?.includes(originalTime);
@@ -503,163 +926,52 @@
                 document.querySelectorAll('.class-edit-item').forEach(item => {
                     const originalTime = item.dataset.originalTime;
                     if (item.querySelector('.cancel-checkbox').checked) { newOverrideData.cancelledClasses.push(originalTime); return; }
+                    
                     const newCourse = item.querySelector('.course-select').value;
-                    if (newCourse !== schedule[dayName][originalTime]) newOverrideData.classChanges[originalTime] = newCourse;
+                    // Only save if changed from template
+                    if (newCourse !== weeklyScheduleTemplate[dayName][originalTime]) {
+                        newOverrideData.classChanges[originalTime] = newCourse;
+                    }
+                    
                     const newTime = item.querySelector('.time-input').value;
-                    if (newTime !== originalTime) newOverrideData.timeChanges[originalTime] = newTime;
+                    // Only save if changed from original time
+                    if (newTime !== originalTime) {
+                        newOverrideData.timeChanges[originalTime] = newTime;
+                    }
                 });
                 if (Object.keys(newOverrideData.classChanges).length === 0) delete newOverrideData.classChanges;
                 if (Object.keys(newOverrideData.timeChanges).length === 0) delete newOverrideData.timeChanges;
                 if (newOverrideData.cancelledClasses.length === 0) delete newOverrideData.cancelledClasses;
             }
-            if (Object.keys(newOverrideData).length <= 1) { await handleDeleteOverrides(date); return; }
+
+            // If no overrides are set, delete the doc instead
+            if (Object.keys(newOverrideData).length <= 1) { 
+                await handleDeleteOverrides(date); 
+                return; 
+            }
+            
             const docRef = doc(db, `/artifacts/${appId}/public/data/schedule_overrides`, date);
-            try { await setDoc(docRef, newOverrideData); }
+            try { 
+                await setDoc(docRef, newOverrideData); 
+            }
             catch (error) { console.error("Failed to save overrides:", error); alert("儲存設定失敗！"); }
-            finally { closeModal(editDayModalEl); initializeSchedule(); }
+            finally { 
+                closeModal(editDayModalEl); 
+                initializeSchedule(); // Refresh main view
+            }
         }
         
         async function handleDeleteOverrides(date) {
             const docRef = doc(db, `/artifacts/${appId}/public/data/schedule_overrides`, date);
-            try { await deleteDoc(docRef); }
-            catch (error) { console.error("Failed to delete overrides:", error); alert("移除設定失敗！"); }
-            finally { closeModal(editDayModalEl); initializeSchedule(); }
-        }
-
-        function initializeAdminView() {
-            document.getElementById('adminCourseList').innerHTML = '<p>管理員編輯中...</p>';
-        }
-
-        async function initializeSchedule() {
-            clearFirestoreListeners(); 
-            if (!currentUserId) return;
-            const { weekDates, rangeStr } = getWeekInfo(currentDate);
-            document.getElementById('weekRangeDisplay').textContent = rangeStr;
-
-            const startDate = weekDates[0].toISOString().slice(0, 10);
-            const endDate = weekDates[5].toISOString().slice(0, 10);
-            const overrides = {};
-            try {
-                const q = query(collection(db, `/artifacts/${appId}/public/data/schedule_overrides`), where('date', '>=', startDate), where('date', '<=', endDate));
-                const querySnapshot = await getDocs(q);
-                querySnapshot.forEach(doc => { overrides[doc.data().date] = doc.data(); });
-            } catch (error) {
-                console.error("Could not fetch schedule overrides.", error);
-                if (error.code === 'permission-denied') { document.getElementById('app').innerHTML = `<div class="p-4..."><p>無法載入課表...</p></div>`; return; }
+            try { 
+                await deleteDoc(docRef); 
             }
-            
-            scheduleContainer.innerHTML = '';
-            const table = document.createElement('table');
-            table.className = "w-full min-w-[900px] border-collapse text-center";
-            const thead = document.createElement('thead');
-            const headerRow = document.createElement('tr');
-            const cornerTh = document.createElement('th');
-            cornerTh.className = "w-[80px]";
-            headerRow.appendChild(cornerTh);
-
-            weekdays.forEach((day, index) => {
-                const date = weekDates[index];
-                const dateString = date.toISOString().slice(0, 10);
-                const th = document.createElement('th');
-                th.className = "font-bold p-2 bg-gray-100 align-middle border border-gray-200";
-                let adminBtn = isAdmin ? `<button data-date="${dateString}" data-day-name="${day}" class="edit-day-btn text-xs mt-1 p-1 bg-gray-200 rounded font-normal">⚙️ 設定</button>` : '';
-                th.innerHTML = `<div class="flex flex-col items-center"><span>${day}</span><span class="text-xs font-normal">${date.getMonth()+1}/${date.getDate()}</span>${adminBtn}</div>`;
-                headerRow.appendChild(th);
-            });
-            thead.appendChild(headerRow);
-            table.appendChild(thead);
-
-            const tbody = document.createElement('tbody');
-            const timeBlocks = {};
-            Object.values(schedule).forEach(daySchedule => {
-                Object.keys(daySchedule).forEach(time => {
-                    const hour = time.split(':')[0];
-                    if(!timeBlocks[hour]) timeBlocks[hour] = [];
-                    if(!timeBlocks[hour].includes(time)) timeBlocks[hour].push(time);
-                });
-            });
-
-            Object.keys(timeBlocks).sort().forEach((hour, hourIndex) => {
-                const tr = document.createElement('tr');
-                const prevHour = hourIndex > 0 ? Object.keys(timeBlocks).sort()[hourIndex - 1] : -1;
-                if ((hour >= 12 && prevHour < 12) || (hour >= 18 && prevHour < 18)) {
-                    tr.classList.add('border-t-2', 'border-gray-300');
-                }
-
-                const timeTh = document.createElement('th');
-                timeTh.scope = 'row';
-                timeTh.className = 'font-bold text-gray-500 p-2 align-middle border border-gray-200';
-                timeTh.textContent = `${hour}:00`;
-                tr.appendChild(timeTh);
-
-                weekDates.forEach((date, dayIndex) => {
-                    const dateString = date.toISOString().slice(0, 10);
-                    const dayName = weekdays[dayIndex];
-                    const td = document.createElement('td');
-                    td.className = 'p-1 align-top border border-gray-200 space-y-1';
-                    const overrideData = overrides[dateString];
-
-                    if (overrideData?.status === 'rest_day') {
-                        td.innerHTML = `<div class="h-full min-h-[120px] p-2 rounded-lg flex flex-col justify-center items-center text-left status-expired"><p class="font-bold">本日公休</p></div>`;
-                    } else {
-                        timeBlocks[hour].forEach(time => {
-                            if (overrideData?.cancelledClasses?.includes(time)) {
-                                 td.innerHTML += `<div class="h-full min-h-[120px] p-2 rounded-lg flex flex-col justify-center items-center text-left status-expired"><p class="font-bold">本日停課</p></div>`;
-                                 return;
-                            }
-                            let finalTime = overrideData?.timeChanges?.[time] || time;
-                            let courseName = schedule[dayName]?.[time];
-                            if(overrideData?.classChanges?.[time]) courseName = overrideData.classChanges[time];
-
-                            if (courseName) {
-                                const classDateTime = getClassDateTime(date, finalTime);
-                                const courseId = `${dateString}-${time}`; 
-                                const finalCourseNameToPass = courseName;
-                                const courseDiv = document.createElement('div');
-                                courseDiv.className = 'min-h-[120px]';
-                                courseDiv.innerHTML = `
-                                    <div id="${courseId}" class="course-card h-full p-2 rounded-lg flex flex-col border text-left">
-                                        <div class="flex-grow"> <p class="font-bold text-center ${courseName === '燃脂跳床' ? 'text-red-500' : ''}">${courseName}</p> <p class="text-xs text-center text-gray-500">${finalTime}</p> <div class="attendee-info mt-1 text-xs text-gray-700 overflow-y-auto h-10"></div> </div>
-                                        <div class="pt-1"> <div class="w-full progress-bar-bg rounded-full h-1.5"><div class="progress-bar"></div></div> <p class="text-xs text-right mt-1 text-gray-500">0/6</p> </div>
-                                    </div>`;
-                                
-                                const cardElement = courseDiv.firstElementChild;
-                                const isExpired = new Date() > classDateTime;
-
-                                if (!isExpired) {
-                                    cardElement.classList.add('cursor-pointer', 'transition-all', 'duration-200', 'hover:shadow-md', 'hover:-translate-y-1');
-                                    cardElement.addEventListener('click', () => openBookingModal(courseId, classDateTime, finalCourseNameToPass));
-                                }
-
-                                const unsub = onSnapshot(doc(db, `/artifacts/${appId}/public/data/courses`, courseId), (docSnap) => {
-                                    const dbData = docSnap.exists() ? docSnap.data() : { attendees: [] };
-                                    updateCardUI(courseId, { ...dbData, courseName: finalCourseNameToPass }, classDateTime);
-                                }, (error) => {
-                                    if (error.code === 'permission-denied') console.error("Permission denied.");
-                                });
-                                unsubscribeListeners.push(unsub);
-                                td.appendChild(courseDiv);
-                            }
-                        });
-                    }
-                    tr.appendChild(td);
-                });
-                tbody.appendChild(tr);
-            });
-            
-            table.appendChild(tbody);
-            scheduleContainer.appendChild(table);
-            
-            scheduleContainer.querySelectorAll('.edit-day-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    const button = e.target.closest('.edit-day-btn');
-                    openEditDayModal(button.dataset.date, button.dataset.dayName, overrides[button.dataset.date]);
-                });
-            });
+            catch (error) { console.error("Failed to delete overrides:", error); alert("移除設定失敗！"); }
+            finally { 
+                closeModal(editDayModalEl); 
+                initializeSchedule(); // Refresh main view
+            }
         }
     </script>
 </body>
 </html>
-
-
-
