@@ -59,7 +59,7 @@
 
         <header class="relative text-center mb-8">
             <div class="md:absolute md:top-1/2 md:left-0 md:-translate-y-1/2">
-                <img src="彈跳LOGO.jpg" alt="JPS 彈跳 LOGO" class="h-16 w-auto md:h-20 mx-auto mb-4 md:mx-0 md:mb-0">
+                <img src="彈跳LOGO.jpg" alt="JPS 彈跳 LOGO" class="h-16 w-auto md:h-20 mx-auto mb-4 md:mx-0 md:mb-0" onerror="this.style.display='none'; this.onerror=null;">
             </div>
             <h1 id="main-title" class="text-4xl md:text-5xl font-black gradient-text">JPS 彈跳運動教室</h1>
             <p class="text-lg text-gray-600 mt-2">即時課程預約系統</p>
@@ -139,14 +139,8 @@
         import { getAuth, signInAnonymously, onAuthStateChanged, signInWithEmailAndPassword, signOut, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         
         // --- Firebase Config ---
-        const firebaseConfig = {
-			apiKey: "AIzaSyBIeXTW1yCsASMPY64HhdDoXYIygl08f34",
-			authDomain: "jps-booking-system.firebaseapp.com",
-			projectId: "jps-booking-system",
-			storageBucket: "jps-booking-system.firebasestorage.app",
-			messagingSenderId: "582146871191",
-			appId: "1:582146871191:web:9b254fe25bba83fb133ed2"
-		};
+        // 您的 Firebase 設定
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{"apiKey":"AIzaSyBIeXTW1yCsASMPY64HhdDoXYIygl08f34","authDomain":"jps-booking-system.firebaseapp.com","projectId":"jps-booking-system","storageBucket":"jps-booking-system.firebasestorage.app","messagingSenderId":"582146871191","appId":"1:582146871191:web:9b254fe25bba83fb133ed2"}');
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         // --- Global Variables ---
@@ -218,7 +212,15 @@
                 if (user) {
                     handleUserSession(user);
                 } else {
-                    signInAnonymously(auth).catch(err => console.error("Anonymous sign-in failed", err));
+                    // Sign in anonymously if no user
+                    if (typeof __initial_auth_token !== 'undefined') {
+                        signInWithCustomToken(auth, __initial_auth_token).catch(err => {
+                            console.error("Custom token sign-in failed", err);
+                            signInAnonymously(auth).catch(err => console.error("Anonymous sign-in failed", err));
+                        });
+                    } else {
+                        signInAnonymously(auth).catch(err => console.error("Anonymous sign-in failed", err));
+                    }
                 }
             });
         }
@@ -330,7 +332,8 @@
                     
                     // Simple time validation
                     if (!time.match(/^\d{2}:\d{2}-\d{2}:\d{2}$/)) {
-                        alert("請輸入正確的時間格式 HH:MM-HH:MM (例如 19:15-20:00)");
+                        // Use custom modal for alert
+                        showCustomAlert("請輸入正確的時間格式 HH:MM-HH:MM (例如 19:15-20:00)");
                         timeInput.focus();
                         return;
                     }
@@ -389,11 +392,11 @@
                 // Full refresh of the main schedule view
                 await initializeSchedule(); 
                 
-                alert("預設課表已儲存！");
+                showCustomAlert("預設課表已儲存！");
 
             } catch (err) {
                 console.error("Error saving schedule template:", err);
-                alert("儲存失敗，請稍後再試。");
+                showCustomAlert("儲存失敗，請稍後再試。");
             }
         }
 
@@ -475,21 +478,21 @@
                         </div>
                     </form>
                 </div>`;
-            adminLoginModalEl.querySelector('.close-modal-btn').addEventListener('click', () => closeModal(adminLoginModalEl));
-            adminLoginModalEl.querySelector('#adminLoginForm').addEventListener('submit', (e) => {
-                e.preventDefault();
-                const email = e.target.querySelector('#adminEmail').value;
-                const password = e.target.querySelector('#adminPassword').value;
-                const errorEl = e.target.querySelector('#loginError');
-                errorEl.classList.add('hidden');
-                signInWithEmailAndPassword(auth, email, password)
-                    .then(() => closeModal(adminLoginModalEl))
-                    .catch((err) => {
-                        errorEl.textContent = "登入失敗，請檢查帳號或密碼。";
-                        errorEl.classList.remove('hidden');
-                    });
-            });
-            openModal(adminLoginModalEl);
+             adminLoginModalEl.querySelector('.close-modal-btn').addEventListener('click', () => closeModal(adminLoginModalEl));
+             adminLoginModalEl.querySelector('#adminLoginForm').addEventListener('submit', (e) => {
+                 e.preventDefault();
+                 const email = e.target.querySelector('#adminEmail').value;
+                 const password = e.target.querySelector('#adminPassword').value;
+                 const errorEl = e.target.querySelector('#loginError');
+                 errorEl.classList.add('hidden');
+                 signInWithEmailAndPassword(auth, email, password)
+                     .then(() => closeModal(adminLoginModalEl))
+                     .catch((err) => {
+                         errorEl.textContent = "登入失敗，請檢查帳號或密碼。";
+                         errorEl.classList.remove('hidden');
+                     });
+             });
+             openModal(adminLoginModalEl);
         });
 
         // --- Admin Panel ---
@@ -503,8 +506,8 @@
             const adminLogoutBtn = document.getElementById('adminLogoutBtn');
             if (adminLogoutBtn) {
                  adminLogoutBtn.addEventListener('click', () => {
-                    signOut(auth).then(() => window.location.reload()).catch(err => console.error("Sign out failed:", err));
-                });
+                     signOut(auth).then(() => window.location.reload()).catch(err => console.error("Sign out failed:", err));
+                 });
             }
             
             // You can add more admin-specific UI initialization here
@@ -515,6 +518,52 @@
         function openModal(modal) { modal.classList.remove('opacity-0', 'pointer-events-none'); }
         function closeModal(modal) { modal.classList.add('opacity-0', 'pointer-events-none'); }
         
+        // Custom Alert
+        function showCustomAlert(message, type = 'error') {
+            const confirmModalEl = document.getElementById('confirmModal');
+            let bgColor = 'bg-red-100';
+            let textColor = 'text-red-800';
+            if (type === 'success') {
+                bgColor = 'bg-green-100';
+                textColor = 'text-green-800';
+            }
+
+            confirmModalEl.innerHTML = `
+                <div class="modal-content bg-white rounded-xl shadow-lg w-11/12 max-w-sm m-4">
+                    <div class="p-6">
+                        <h3 class="text-lg font-bold text-center ${textColor} mb-4">${message}</h3>
+                        <div class="flex justify-center">
+                            <button type="button" class="close-confirm-btn px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">確認</button>
+                        </div>
+                    </div>
+                </div>`;
+            
+            confirmModalEl.querySelector('.close-confirm-btn').addEventListener('click', () => closeModal(confirmModalEl));
+            openModal(confirmModalEl);
+        }
+
+        // Custom Confirm
+        function showCustomConfirm(message, callback) {
+            const confirmModalEl = document.getElementById('confirmModal');
+            confirmModalEl.innerHTML = `
+                <div class="modal-content bg-white rounded-xl shadow-lg w-11/12 max-w-sm m-4">
+                    <div class="p-6">
+                        <h3 class="text-lg font-bold text-center text-gray-800 mb-6">${message}</h3>
+                        <div class="flex justify-center gap-4">
+                            <button type="button" class="cancel-btn px-6 py-2 bg-gray-200 text-gray-800 rounded-lg hover:bg-gray-300">取消</button>
+                            <button type="button" class="confirm-btn px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">確定</button>
+                        </div>
+                    </div>
+                </div>`;
+            
+            confirmModalEl.querySelector('.cancel-btn').addEventListener('click', () => closeModal(confirmModalEl));
+            confirmModalEl.querySelector('.confirm-btn').addEventListener('click', () => {
+                closeModal(confirmModalEl);
+                callback(true); // User confirmed
+            });
+            openModal(confirmModalEl);
+        }
+
         // --- Week Navigation ---
         prevWeekBtn.addEventListener('click', () => { currentDate.setDate(currentDate.getDate() - 7); initializeSchedule(); });
         nextWeekBtn.addEventListener('click', () => { currentDate.setDate(currentDate.getDate() + 7); initializeSchedule(); });
@@ -741,7 +790,7 @@
 
         async function openBookingModal(courseId, classDateTime, courseName) {
             if (!currentUserName && !isAdmin) {
-                alert("請先在上方輸入您的姓名並儲存，才能預約課程。");
+                showCustomAlert("請先在上方輸入您的姓名並儲存，才能預約課程。");
                 document.getElementById('userNameInput').focus();
                 return;
             }
@@ -752,22 +801,25 @@
             const bookingId = `${currentUserId}_${currentUserName}`;
             const isBooked = courseData.attendees?.some(p => p.id === bookingId);
             const now = new Date();
+            
+            // 6 hours * 60 minutes * 60 seconds * 1000 milliseconds
             const cancellationCutoffTime = new Date(classDateTime.getTime() - 6 * 60 * 60 * 1000); // 6 hours before class
 
             // Check booking/cancellation rules
             if (isBooked && now > cancellationCutoffTime && !isAdmin) { 
-                alert("已超過可取消的時間（上課前六小時）。"); 
+                // *** 這是更新後的提示訊息 ***
+                showCustomAlert("已超過可取消時間（上課前六小時），請直接電話聯絡教練，否則將視同扣課。"); 
                 return; 
             }
             if (!isBooked && now > classDateTime) { 
-                alert("課程已經開始，無法預約。"); 
+                showCustomAlert("課程已經開始，無法預約。"); 
                 return; 
             }
             
             const details = courseDetails[courseName];
             if (!details) { 
                 console.error(`Could not find details for course: ${courseName}`); 
-                alert("無法讀取課程資訊，請稍後再試。"); 
+                showCustomAlert("無法讀取課程資訊，請稍後再試。"); 
                 return; 
             }
             
@@ -775,7 +827,7 @@
             let attendeeListHtml = courseData.attendees?.map((p, i) =>
                 `<li class="flex justify-between items-center py-1 ${p.id === bookingId ? 'font-bold text-indigo-600' : ''}">
                     <span>${i + 1}. ${p.name}</span>
-                    ${isAdmin ? `<button data-id="${p.id}" class="remove-attendee-btn text-red-500 text-xs hover:text-red-700 px-2 py-1 bg-red-100 rounded">移除</button>` : ''}
+                    ${isAdmin ? `<button data-id="${p.id}" data-name="${p.name}" class="remove-attendee-btn text-red-500 text-xs hover:text-red-700 px-2 py-1 bg-red-100 rounded">移除</button>` : ''}
                 </li>`
             ).join('') || '<li class="text-gray-500">尚無人報名</li>';
 
@@ -798,7 +850,15 @@
             if (bookingActionBtn) bookingActionBtn.addEventListener('click', () => handleBooking(courseId, courseName));
             if (isAdmin) {
                 bookingModalEl.querySelectorAll('.remove-attendee-btn').forEach(btn => {
-                    btn.addEventListener('click', (e) => handleBooking(courseId, courseName, e.target.dataset.id));
+                    btn.addEventListener('click', (e) => {
+                        const idToRemove = e.target.dataset.id;
+                        const nameToRemove = e.target.dataset.name;
+                        showCustomConfirm(`您確定要移除 ${nameToRemove} 嗎？`, (confirmed) => {
+                            if (confirmed) {
+                                handleBooking(courseId, courseName, idToRemove);
+                            }
+                        });
+                    });
                 });
             }
             openModal(bookingModalEl);
@@ -819,8 +879,18 @@
                     const idToRemove = adminRemoveId || currentUserBookingId;
                     const personToRemove = currentAttendees.find(p => p.id === idToRemove);
                     
-                    if (isAdmin && adminRemoveId && !confirm(`您確定要移除 ${personToRemove?.name || '此學員'} 嗎？`)) {
-                        return; // Admin cancelled the removal
+                    if (!personToRemove) {
+                        console.warn("Could not find person to remove.");
+                        return;
+                    }
+
+                    // Admin removal is already confirmed by showCustomConfirm
+                    // User cancellation:
+                    if (!adminRemoveId) {
+                        let confirmed = await new Promise((resolve) => {
+                            showCustomConfirm("您確定要取消這個預約嗎？", resolve);
+                        });
+                        if (!confirmed) return;
                     }
                     
                     const newAttendees = currentAttendees.filter(p => p.id !== idToRemove);
@@ -828,12 +898,12 @@
 
                 } else {
                     // --- Handle New Booking ---
-                    if (!currentUserName) { alert("請輸入有效的姓名並儲存。"); return; }
+                    if (!currentUserName) { showCustomAlert("請輸入有效的姓名並儲存。"); return; }
                     
                     // Check if full
                     const details = courseDetails[courseName] || { max: 8 };
                     if (currentAttendees.length >= details.max) {
-                        alert("抱歉，這堂課已額滿。");
+                        showCustomAlert("抱歉，這堂課已額滿。");
                         return;
                     }
 
@@ -845,7 +915,7 @@
                 }
             } catch (error) {
                 console.error("Booking operation failed:", error);
-                alert("操作失敗，請稍後再試。");
+                showCustomAlert("操作失敗，請稍後再試。");
             } finally {
                 closeModal(bookingModalEl);
             }
@@ -910,7 +980,13 @@
             editDayModalEl.querySelector('.close-modal-btn').addEventListener('click', () => closeModal(editDayModalEl));
             editDayModalEl.querySelector('#saveOverridesBtn').addEventListener('click', () => handleSaveOverrides(date, dayName));
             const deleteBtn = editDayModalEl.querySelector('#deleteOverridesBtn');
-            if(deleteBtn) deleteBtn.addEventListener('click', () => handleDeleteOverrides(date));
+            if(deleteBtn) deleteBtn.addEventListener('click', () => {
+                showCustomConfirm("您確定要清除這個日期的所有特殊設定嗎？", (confirmed) => {
+                    if (confirmed) {
+                        handleDeleteOverrides(date);
+                    }
+                });
+            });
             openModal(editDayModalEl);
         }
 
@@ -954,7 +1030,7 @@
             try { 
                 await setDoc(docRef, newOverrideData); 
             }
-            catch (error) { console.error("Failed to save overrides:", error); alert("儲存設定失敗！"); }
+            catch (error) { console.error("Failed to save overrides:", error); showCustomAlert("儲存設定失敗！"); }
             finally { 
                 closeModal(editDayModalEl); 
                 initializeSchedule(); // Refresh main view
@@ -966,7 +1042,7 @@
             try { 
                 await deleteDoc(docRef); 
             }
-            catch (error) { console.error("Failed to delete overrides:", error); alert("移除設定失敗！"); }
+            catch (error) { console.error("Failed to delete overrides:", error); showCustomAlert("移除設定失敗！"); }
             finally { 
                 closeModal(editDayModalEl); 
                 initializeSchedule(); // Refresh main view
@@ -975,4 +1051,3 @@
     </script>
 </body>
 </html>
-
