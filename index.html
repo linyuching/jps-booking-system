@@ -752,11 +752,11 @@
             const bookingId = `${currentUserId}_${currentUserName}`;
             const isBooked = courseData.attendees?.some(p => p.id === bookingId);
             const now = new Date();
-            const cancellationCutoffTime = new Date(classDateTime.getTime() - 60 * 60 * 1000); // 1 hour before class
+            const cancellationCutoffTime = new Date(classDateTime.getTime() - 6 * 60 * 60 * 1000); // 6 hours before class
 
             // Check booking/cancellation rules
             if (isBooked && now > cancellationCutoffTime && !isAdmin) { 
-                alert("已超過可取消的時間（上課前一小時）。"); 
+                alert("已超過可取消的時間（上課前六小時）。"); 
                 return; 
             }
             if (!isBooked && now > classDateTime) { 
@@ -975,3 +975,4 @@
     </script>
 </body>
 </html>
+
